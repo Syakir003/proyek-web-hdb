@@ -91,8 +91,8 @@ mysql -u root -p hdb_airconds < database_migrations.sql
 
 ```sql
 -- Buat database
-CREATE DATABASE hdb_airconds CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE hdb_airconds;
+CREATE DATABASE nama_DB_anda CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE nama_DB_anda;
 
 -- Jalankan query dari database_migrations.sql
 ```
