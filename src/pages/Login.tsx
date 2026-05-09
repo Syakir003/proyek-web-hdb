@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Lock, User, Loader2, ArrowLeft, Mail } from "lucide-react";
+import { Lock, User, Loader2, ArrowLeft, Wind } from "lucide-react";
 import { motion } from "motion/react";
 
 interface LoginProps {
@@ -53,51 +53,81 @@ export default function Login({ onLoginSuccess, onBack }: LoginProps) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 bg-blue-50/95 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
     >
-      <div className="max-w-md w-full">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        transition={{ duration: 0.25 }}
+        className="max-w-md w-full"
+      >
         <button
           onClick={onBack}
-          className="flex items-center text-slate-500 hover:text-blue-600 mb-6 transition-colors font-medium"
+          className="flex items-center text-white/80 hover:text-white mb-6 transition-colors font-medium"
         >
-          <ArrowLeft className="w-5 h-5 mr-1" /> Kembali ke Beranda
+          <ArrowLeft className="w-5 h-5 mr-1" /> Kembali
         </button>
 
-        <div className="bg-white rounded-2xl shadow-xl border border-blue-100 overflow-hidden">
-          <div className="p-8 bg-blue-600 text-center">
-            <h2 className="text-2xl font-bold text-white mb-2">
-              {isLogin ? "Login" : "Daftar Akun"}
-            </h2>
-            <p className="text-blue-100 text-sm">
-              {isLogin
-                ? "Masuk untuk mengakses layanan HDB Airconds"
-                : "Buat akun baru untuk mulai menggunakan layanan HDB Airconds"}
-            </p>
+        <div className="bg-white rounded-3xl shadow-2xl overflow-hidden">
+          {/* Header */}
+          <div className="relative bg-gradient-to-br from-sky-600 to-sky-400 px-8 pt-10 pb-12 text-center overflow-hidden">
+            <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2" />
+            <div className="relative z-10">
+              <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Wind className="w-7 h-7 text-white" />
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-1">
+                {isLogin ? "Selamat Datang" : "Buat Akun Baru"}
+              </h2>
+              <p className="text-sky-100 text-sm">
+                {isLogin
+                  ? "Masuk untuk mengakses layanan HDB Airconds"
+                  : "Daftarkan diri Anda untuk mulai menggunakan layanan kami"}
+              </p>
+            </div>
+          </div>
+
+          {/* Toggle tabs */}
+          <div className="flex border-b border-slate-100 -mt-1">
+            <button
+              onClick={() => { setIsLogin(true); setErrorMessage(""); }}
+              className={`flex-1 py-3.5 text-sm font-semibold transition-colors ${isLogin ? "text-sky-600 border-b-2 border-sky-500" : "text-slate-500 hover:text-slate-700"}`}
+            >
+              Masuk
+            </button>
+            <button
+              onClick={() => { setIsLogin(false); setErrorMessage(""); }}
+              className={`flex-1 py-3.5 text-sm font-semibold transition-colors ${!isLogin ? "text-sky-600 border-b-2 border-sky-500" : "text-slate-500 hover:text-slate-700"}`}
+            >
+              Daftar
+            </button>
           </div>
 
           <div className="p-8">
             {status === "error" && (
-              <div className="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm text-center">
+              <div className="mb-5 p-3.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm text-center font-medium">
                 {errorMessage}
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-5">
               {!isLogin && (
                 <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
                     Nama Lengkap
                   </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <User className="h-5 w-5 text-slate-400" />
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                      <User className="h-4 w-4 text-slate-400" />
                     </div>
                     <input
                       type="text"
                       required={!isLogin}
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="block w-full pl-10 pr-3 py-3 border border-blue-100 shadow-sm rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      className="block w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-50 transition-all"
                       placeholder="Masukkan nama lengkap"
                     />
                   </div>
@@ -105,38 +135,38 @@ export default function Login({ onLoginSuccess, onBack }: LoginProps) {
               )}
 
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
                   Username
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <User className="h-5 w-5 text-slate-400" />
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                    <User className="h-4 w-4 text-slate-400" />
                   </div>
                   <input
                     type="text"
                     required
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    className="block w-full pl-10 pr-3 py-3 border border-blue-100 shadow-sm rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    className="block w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-50 transition-all"
                     placeholder="Masukkan username"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
                   Password
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-slate-400" />
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                    <Lock className="h-4 w-4 text-slate-400" />
                   </div>
                   <input
                     type="password"
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="block w-full pl-10 pr-3 py-3 border border-blue-100 shadow-sm rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    className="block w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-50 transition-all"
                     placeholder="••••••••"
                   />
                 </div>
@@ -145,50 +175,30 @@ export default function Login({ onLoginSuccess, onBack }: LoginProps) {
               <button
                 type="submit"
                 disabled={status === "loading"}
-                className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors flex justify-center items-center disabled:opacity-70 shadow-md"
+                className="w-full bg-sky-500 text-white font-bold py-3.5 rounded-xl hover:bg-sky-600 transition-all flex justify-center items-center gap-2 disabled:opacity-70 shadow-lg shadow-sky-500/30 mt-2"
               >
                 {status === "loading" ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : isLogin ? (
                   "Masuk"
                 ) : (
-                  "Daftar"
+                  "Daftar Sekarang"
                 )}
               </button>
             </form>
 
-            <div className="mt-6 text-center text-sm text-slate-600">
-              {isLogin ? (
-                <p>
-                  Belum punya akun?{" "}
-                  <button
-                    onClick={() => {
-                      setIsLogin(false);
-                      setErrorMessage("");
-                    }}
-                    className="text-blue-600 font-bold hover:underline"
-                  >
-                    Daftar di sini
-                  </button>
-                </p>
-              ) : (
-                <p>
-                  Sudah punya akun?{" "}
-                  <button
-                    onClick={() => {
-                      setIsLogin(true);
-                      setErrorMessage("");
-                    }}
-                    className="text-blue-600 font-bold hover:underline"
-                  >
-                    Masuk di sini
-                  </button>
-                </p>
-              )}
-            </div>
+            <p className="mt-6 text-center text-xs text-slate-400">
+              {isLogin ? "Belum punya akun? " : "Sudah punya akun? "}
+              <button
+                onClick={() => { setIsLogin(!isLogin); setErrorMessage(""); }}
+                className="text-sky-600 font-semibold hover:underline"
+              >
+                {isLogin ? "Daftar di sini" : "Masuk di sini"}
+              </button>
+            </p>
           </div>
         </div>
-      </div>
+      </motion.div>
     </motion.div>
   );
 }

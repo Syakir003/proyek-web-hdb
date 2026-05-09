@@ -58,8 +58,8 @@ export default function Cart({
           className="mb-8"
         >
           <div className="flex items-center gap-3 mb-2">
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <ShoppingCart className="w-6 h-6 text-blue-600" />
+            <div className="p-3 bg-sky-100 rounded-xl">
+              <ShoppingCart className="w-6 h-6 text-sky-600" />
             </div>
             <div>
               <h1 className="text-3xl md:text-4xl font-bold text-slate-900">
@@ -94,7 +94,7 @@ export default function Cart({
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="bg-blue-600 text-white px-8 py-3 rounded-full font-bold hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
+              className="bg-sky-500 text-white px-8 py-3 rounded-full font-bold hover:bg-sky-600 transition-colors inline-flex items-center gap-2 shadow-lg shadow-sky-500/30"
             >
               Lihat Katalog <ArrowRight className="w-5 h-5" />
             </motion.button>
@@ -124,15 +124,15 @@ export default function Cart({
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 20, scale: 0.9 }}
                     transition={{ duration: 0.3 }}
-                    className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex items-center gap-4 hover:shadow-lg transition-all duration-300 group"
+                    className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex items-center gap-4 hover:shadow-lg hover:border-sky-100 transition-all duration-300 group"
                   >
                     <motion.img
                       src={item.image}
                       alt={item.name}
-                      className="w-28 h-28 object-cover rounded-xl bg-gradient-to-br from-slate-100 to-slate-50 group-hover:scale-105 transition-transform duration-300"
+                      className="w-20 h-20 sm:w-28 sm:h-28 object-cover rounded-xl bg-gradient-to-br from-slate-100 to-slate-50 group-hover:scale-105 transition-transform duration-300 flex-shrink-0"
                     />
                     <div className="flex-1">
-                      <h3 className="font-bold text-slate-900 text-lg mb-1 line-clamp-1 group-hover:text-blue-600 transition-colors">
+                      <h3 className="font-bold text-slate-900 text-lg mb-1 line-clamp-1 group-hover:text-sky-600 transition-colors">
                         {item.name}
                       </h3>
                       <div className="flex flex-wrap gap-2 mb-3">
@@ -143,7 +143,7 @@ export default function Cart({
                           {item.capacity}
                         </span>
                       </div>
-                      <p className="font-bold text-blue-600 text-lg">
+                      <p className="font-bold text-sky-600 text-lg">
                         {formatRupiah(item.price)}
                       </p>
                     </div>
@@ -178,7 +178,7 @@ export default function Cart({
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="bg-gradient-to-br from-blue-50 to-white rounded-2xl shadow-sm border border-blue-200 p-6 sticky top-24 hover:shadow-lg transition-shadow duration-300"
+                className="bg-gradient-to-br from-sky-50 to-white rounded-2xl shadow-sm border border-sky-100 p-6 sticky top-24 hover:shadow-lg transition-shadow duration-300"
               >
                 <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
                   <Check className="w-5 h-5 text-green-500" /> Ringkasan Pesanan
@@ -205,7 +205,7 @@ export default function Cart({
 
                 <div className="flex justify-between text-slate-900 font-bold text-lg mb-6 pb-6 border-b border-slate-200">
                   <span>Total</span>
-                  <span className="text-2xl text-blue-600">
+                  <span className="text-2xl text-sky-600">
                     {formatRupiah(totalPrice * 0.95)}
                   </span>
                 </div>
@@ -242,7 +242,7 @@ export default function Cart({
                     whileTap={{ scale: 0.98 }}
                     onClick={handleCheckoutAll}
                     disabled={cart.length === 0}
-                    className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-lg font-bold hover:from-blue-700 hover:to-blue-800 transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full bg-sky-500 text-white py-3 rounded-xl font-bold hover:bg-sky-600 transition-all flex items-center justify-center gap-2 shadow-lg shadow-sky-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Check className="w-5 h-5" /> Lanjut ke Checkout
                   </motion.button>

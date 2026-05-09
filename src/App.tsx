@@ -177,7 +177,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-blue-50 text-slate-900 font-sans flex flex-col">
+    <div className="min-h-screen bg-white text-slate-900 font-sans flex flex-col">
       <Navbar
         currentPage={currentPage}
         setCurrentPage={setCurrentPage}
@@ -190,7 +190,7 @@ export default function App() {
         cartCount={cart.length}
       />
 
-      <main className="grow">
+      <main className={`grow ${currentPage !== "beranda" ? "pt-20" : ""}`}>
         <AnimatePresence mode="wait">{renderPage()}</AnimatePresence>
       </main>
 

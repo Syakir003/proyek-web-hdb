@@ -309,14 +309,14 @@ export default function Checkout({
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.5 }}
-        className="min-h-screen bg-gradient-to-b from-green-50 to-blue-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8"
+        className="min-h-screen bg-gradient-to-b from-sky-50 to-white flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8"
       >
         <div className="max-w-md w-full">
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.2, type: "spring" }}
-            className="bg-white p-8 rounded-2xl shadow-xl border-2 border-green-200 text-center mb-6"
+            className="bg-white p-8 rounded-2xl shadow-xl border border-sky-100 text-center mb-6"
           >
             <motion.div
               animate={{ rotate: [0, 360] }}
@@ -329,7 +329,7 @@ export default function Checkout({
             </h2>
             <p className="text-slate-600 mb-2 text-lg">
               Terima kasih,{" "}
-              <span className="font-bold text-blue-600">
+              <span className="font-bold text-sky-600">
                 {formData.customerName}
               </span>
             </p>
@@ -339,12 +339,12 @@ export default function Checkout({
               kami terima dan sedang diproses.
             </p>
 
-            <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 mb-8">
-              <p className="text-sm text-blue-900 mb-2">
+            <div className="bg-sky-50 border border-sky-100 rounded-xl p-4 mb-8">
+              <p className="text-sm text-sky-900 mb-2">
                 <span className="font-bold">Status Pesanan:</span> Menunggu
                 Konfirmasi
               </p>
-              <p className="text-xs text-blue-700">
+              <p className="text-xs text-sky-700">
                 Anda akan menerima update melalui WhatsApp di{" "}
                 <span className="font-bold">{formData.phone}</span>
               </p>
@@ -354,7 +354,7 @@ export default function Checkout({
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={onBack}
-              className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold py-3 px-4 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg mb-3"
+              className="w-full bg-sky-500 text-white font-bold py-3 px-4 rounded-xl hover:bg-sky-600 transition-all shadow-lg shadow-sky-500/30 mb-3"
             >
               Lihat Pesanan Saya
             </motion.button>
@@ -377,7 +377,7 @@ export default function Checkout({
               href="https://wa.me/6281515729739?text=Halo%20saya%20punya%20pertanyaan%20tentang%20pesanan%20saya"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 font-bold hover:text-blue-700 text-sm"
+              className="text-sky-600 font-bold hover:text-sky-700 text-sm"
             >
               Chat WhatsApp Kami →
             </a>
@@ -392,14 +392,14 @@ export default function Checkout({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="bg-gradient-to-b from-blue-50 to-white min-h-screen py-12"
+      className="bg-slate-50 min-h-screen py-12"
     >
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.button
           whileHover={{ x: -5 }}
           whileTap={{ x: 0 }}
           onClick={onBack}
-          className="flex items-center text-slate-600 hover:text-blue-600 mb-8 transition-colors font-medium"
+          className="flex items-center text-slate-600 hover:text-sky-600 mb-8 transition-colors font-medium"
         >
           <ChevronLeft className="w-5 h-5 mr-1" /> Kembali
         </motion.button>
@@ -420,18 +420,18 @@ export default function Checkout({
                 className="flex items-center flex-1"
               >
                 <div
-                  className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg border-2 transition-all ${
+                  className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center font-bold text-base sm:text-lg border-2 transition-all ${
                     idx < 2
-                      ? "bg-blue-600 border-blue-600 text-white"
+                      ? "bg-sky-500 border-sky-500 text-white"
                       : idx === 1
-                        ? "bg-blue-100 border-blue-600 text-blue-600"
+                        ? "bg-sky-100 border-sky-500 text-sky-600"
                         : "bg-slate-100 border-slate-300 text-slate-600"
                   }`}
                 >
                   {item.icon}
                 </div>
                 <p
-                  className={`ml-3 font-semibold ${idx < 2 ? "text-blue-600" : idx === 1 ? "text-slate-900" : "text-slate-500"}`}
+                  className={`ml-2 sm:ml-3 font-semibold text-xs sm:text-sm hidden xs:block ${idx < 2 ? "text-sky-600" : idx === 1 ? "text-slate-900" : "text-slate-500"}`}
                 >
                   {item.label}
                 </p>
@@ -440,7 +440,7 @@ export default function Checkout({
                     initial={{ scaleX: 0 }}
                     animate={{ scaleX: 1 }}
                     transition={{ delay: idx * 0.2 + 0.3 }}
-                    className="flex-1 h-1 bg-blue-600 ml-3 origin-left"
+                    className="flex-1 h-1 bg-sky-500 ml-3 origin-left"
                   ></motion.div>
                 )}
               </motion.div>
@@ -449,7 +449,7 @@ export default function Checkout({
         </div>
 
         <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
-          <div className="p-6 md:p-8 border-b border-blue-50 bg-gradient-to-r from-blue-50 to-white">
+          <div className="p-6 md:p-8 border-b border-slate-100 bg-gradient-to-r from-sky-50 to-white">
             <h1 className="text-3xl font-bold text-slate-900 mb-2">
               Selesaikan Checkout
             </h1>
@@ -463,7 +463,7 @@ export default function Checkout({
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mb-10 p-6 bg-gradient-to-br from-blue-50 to-slate-50 rounded-2xl border-2 border-blue-200"
+              className="mb-10 p-6 bg-gradient-to-br from-sky-50 to-slate-50 rounded-2xl border border-sky-100"
             >
               <h3 className="font-bold text-slate-900 mb-4 text-lg flex items-center gap-2">
                 <span className="text-2xl">📦</span> Ringkasan Pesanan (
@@ -493,7 +493,7 @@ export default function Checkout({
                       <p className="text-xs text-slate-500 mb-1">
                         {item.brand} • {item.capacity}
                       </p>
-                      <p className="font-bold text-blue-600 text-sm">
+                      <p className="font-bold text-sky-600 text-sm">
                         {formatRupiah(item.price)}
                       </p>
                     </div>
@@ -545,7 +545,7 @@ export default function Checkout({
                 transition={{ delay: 0.1 }}
               >
                 <label className="block text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
-                  <User className="w-4 h-4 text-blue-600" />
+                  <User className="w-4 h-4 text-sky-500" />
                   Nama Lengkap
                 </label>
                 <input
@@ -554,7 +554,7 @@ export default function Checkout({
                   required
                   value={formData.customerName}
                   onChange={handleChange}
-                  className="w-full bg-white border-2 border-slate-200 rounded-lg px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder-slate-400"
+                  className="w-full bg-white border-2 border-slate-200 rounded-lg px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400 transition-all placeholder-slate-400"
                   placeholder="Masukkan nama lengkap Anda"
                 />
               </motion.div>
@@ -566,7 +566,7 @@ export default function Checkout({
                 transition={{ delay: 0.15 }}
               >
                 <label className="block text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
-                  <Phone className="w-4 h-4 text-blue-600" />
+                  <Phone className="w-4 h-4 text-sky-500" />
                   Nomor WhatsApp
                 </label>
                 <input
@@ -575,7 +575,7 @@ export default function Checkout({
                   required
                   value={formData.phone}
                   onChange={handleChange}
-                  className="w-full bg-white border-2 border-slate-200 rounded-lg px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder-slate-400"
+                  className="w-full bg-white border-2 border-slate-200 rounded-lg px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400 transition-all placeholder-slate-400"
                   placeholder="0812xxxx"
                 />
                 <p className="text-xs text-slate-500 mt-2">
@@ -590,7 +590,7 @@ export default function Checkout({
                 transition={{ delay: 0.2 }}
               >
                 <label className="block text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-blue-600" />
+                  <MapPin className="w-4 h-4 text-sky-500" />
                   Alamat Pengiriman & Pemasangan
                 </label>
                 <textarea
@@ -599,7 +599,7 @@ export default function Checkout({
                   rows={4}
                   value={formData.address}
                   onChange={handleChange}
-                  className="w-full bg-white border-2 border-slate-200 rounded-lg px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none placeholder-slate-400"
+                  className="w-full bg-white border-2 border-slate-200 rounded-lg px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400 transition-all resize-none placeholder-slate-400"
                   placeholder="Tuliskan alamat lengkap termasuk kota dan kodepos..."
                 ></textarea>
               </motion.div>
@@ -611,11 +611,11 @@ export default function Checkout({
                 transition={{ delay: 0.25 }}
                 className="pt-6 border-t-2 border-slate-200"
               >
-                <div className="flex justify-between items-center mb-6 p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
+                <div className="flex justify-between items-center mb-6 p-4 bg-sky-50 rounded-xl border border-sky-100">
                   <span className="text-slate-700 font-bold text-lg">
                     Total Pembayaran
                   </span>
-                  <span className="text-3xl font-bold text-blue-600">
+                  <span className="text-3xl font-bold text-sky-600">
                     {formatRupiah(totalPrice)}
                   </span>
                 </div>
@@ -625,7 +625,7 @@ export default function Checkout({
                   disabled={status === "loading"}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold py-4 px-4 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all flex justify-center items-center gap-2 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-lg"
+                  className="w-full bg-sky-500 text-white font-bold py-4 px-4 rounded-xl hover:bg-sky-600 transition-all flex justify-center items-center gap-2 shadow-lg shadow-sky-500/30 disabled:opacity-50 disabled:cursor-not-allowed text-lg"
                 >
                   {status === "loading" ? (
                     <>

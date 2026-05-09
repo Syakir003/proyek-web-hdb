@@ -78,7 +78,7 @@ export default function UserOrders({ token }: UserOrdersProps) {
       case 'cancelled':
         return <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold flex items-center w-fit"><X className="w-3 h-3 mr-1"/> Dibatalkan</span>;
       case 'processing':
-        return <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold flex items-center w-fit"><Clock className="w-3 h-3 mr-1"/> Diproses</span>;
+        return <span className="px-3 py-1 bg-sky-100 text-sky-700 rounded-full text-xs font-semibold flex items-center w-fit"><Clock className="w-3 h-3 mr-1"/> Diproses</span>;
       default:
         return <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-semibold flex items-center w-fit"><Clock className="w-3 h-3 mr-1"/> Menunggu</span>;
     }
@@ -95,7 +95,7 @@ export default function UserOrders({ token }: UserOrdersProps) {
       case 'expire':
         return <span className="px-2 py-1 bg-red-50 text-red-700 rounded text-xs font-medium"><X className="w-3 h-3 inline mr-1"/> {status.charAt(0).toUpperCase() + status.slice(1)}</span>;
       case 'refund':
-        return <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs font-medium">Refund</span>;
+        return <span className="px-2 py-1 bg-sky-50 text-sky-700 rounded text-xs font-medium">Refund</span>;
       default:
         return <span className="px-2 py-1 bg-slate-50 text-slate-700 rounded text-xs font-medium">{status}</span>;
     }
@@ -109,13 +109,22 @@ export default function UserOrders({ token }: UserOrdersProps) {
   return (
     <div className="min-h-screen bg-slate-50 py-12">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-bold text-slate-900 mb-8 flex items-center">
-          <Package className="w-8 h-8 mr-3 text-blue-600" />
-          Pesanan Saya
-        </h1>
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-8">
+          <div className="p-3 bg-sky-100 rounded-xl">
+            <Package className="w-6 h-6 text-sky-600" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">Pesanan Saya</h1>
+            <p className="text-slate-500 text-sm mt-0.5">Riwayat dan status pemesanan Anda</p>
+          </div>
+        </div>
 
         {loading ? (
-          <div className="text-center py-12 text-slate-500">Memuat pesanan...</div>
+          <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-500">
+            <RefreshCw className="w-8 h-8 mx-auto mb-3 text-sky-400 animate-spin" />
+            Memuat pesanan...
+          </div>
         ) : orders.length === 0 ? (
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-12 text-center">
             <Package className="w-16 h-16 text-slate-300 mx-auto mb-4" />
@@ -125,11 +134,11 @@ export default function UserOrders({ token }: UserOrdersProps) {
         ) : (
           <div className="space-y-4">
             {orders.map((order: any) => (
-              <div key={order.id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+              <div key={order.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 hover:border-sky-100 hover:shadow-md transition-all">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 pb-4 border-b border-slate-100 gap-4">
                   <div>
-                    <span className="text-sm text-slate-500">Order ID: #{order.id}</span>
-                    <p className="text-sm text-slate-500">{formatDate(order.created_at)}</p>
+                    <span className="text-sm font-semibold text-sky-600">Order #<span className="text-slate-700">{order.id}</span></span>
+                    <p className="text-sm text-slate-500 mt-0.5">{formatDate(order.created_at)}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     {getStatusBadge(order.status)}
@@ -137,20 +146,16 @@ export default function UserOrders({ token }: UserOrdersProps) {
                       <button
                         onClick={() => checkPaymentStatus(order.id)}
                         disabled={checkingStatus === order.id}
-                        className="px-3 py-1 bg-blue-600 text-white rounded-full text-xs font-medium flex items-center hover:bg-blue-700 transition-colors disabled:opacity-50"
+                        className="px-3 py-1 bg-sky-500 text-white rounded-full text-xs font-medium flex items-center hover:bg-sky-600 transition-colors disabled:opacity-50 shadow-sm"
                         title="Cek status pembayaran ke Midtrans"
                       >
-                        {checkingStatus === order.id ? (
-                          <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
-                        ) : (
-                          <RefreshCw className="w-3 h-3 mr-1" />
-                        )}
+                        <RefreshCw className={`w-3 h-3 mr-1 ${checkingStatus === order.id ? 'animate-spin' : ''}`} />
                         Cek Status
                       </button>
                     )}
                   </div>
                 </div>
-                
+
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div>
                     <h3 className="font-bold text-slate-900 text-lg mb-1">{order.product_name}</h3>
@@ -160,12 +165,12 @@ export default function UserOrders({ token }: UserOrdersProps) {
                       Status Pembayaran: {getPaymentStatusBadge(order.payment_status)}
                     </div>
                     {order.assigned_teknisi && (
-                      <p className="text-sm text-blue-600 mt-2 font-medium">Teknisi Ditugaskan: {order.assigned_teknisi}</p>
+                      <p className="text-sm text-sky-600 mt-2 font-medium">Teknisi Ditugaskan: {order.assigned_teknisi}</p>
                     )}
                   </div>
-                  <div className="text-right">
+                  <div className="text-right shrink-0">
                     <p className="text-sm text-slate-500 mb-1">Total Belanja</p>
-                    <p className="font-bold text-xl text-slate-900">{formatRupiah(order.price)}</p>
+                    <p className="font-bold text-xl text-sky-600">{formatRupiah(order.price)}</p>
                   </div>
                 </div>
               </div>
