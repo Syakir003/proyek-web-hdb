@@ -250,10 +250,8 @@ Platform ini dirancang untuk growth bisnis Anda. Dengan fitur lengkap dan mudah 
 
 Untuk demo, konsultasi, atau pertanyaan lebih lanjut:
 
-📞 **Phone**: [Nomor Telepon Anda]  
-📧 **Email**: [Email Anda]  
-🌐 **Website**: [Website Anda]  
-💬 **WhatsApp**: [WhatsApp Anda]
+📞 **Phone**: [082333318107]  
+📧 **Email**: [syakirdaulay445@gmail.com]  
 
 ---
 
