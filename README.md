@@ -63,7 +63,7 @@ HDB AC Shop adalah aplikasi web modern yang dibangun dengan React + TypeScript d
 - ✅ Job status updates
 - 📊 Performance metrics
 
-## � Project Structure
+## 📁 Project Structure
 
 ```
 src/
@@ -149,7 +149,6 @@ See [MIDTRANS_SETUP.md](./MIDTRANS_SETUP.md) for configuration details.
 ## 📚 Documentation
 
 - [MIDTRANS_SETUP.md](./MIDTRANS_SETUP.md) - Payment setup
-- [TODO.md](./TODO.md) - Backlog & improvements
 - [README_CLIENT.md](./README_CLIENT.md) - Client-facing docs
 
 ## 🤝 Contributing
@@ -179,7 +178,3 @@ MIT License - see LICENSE file for details
 
 - 📧 Issues: https://github.com/Syakir003/proyek-web-hdb/issues
 - 📖 Wiki: [Project Documentation]
-
----
-
-**Built with ❤️ for HDB AC Shop**
