@@ -18,15 +18,28 @@ import Cart from "./pages/Cart";
 import UserOrders from "./pages/UserOrders";
 import AdminLayout from "./pages/admin/AdminLayout";
 import TeknisiDashboard from "./pages/teknisi/TeknisiDashboard";
-import { Product } from "./data";
+import Layanan from "./pages/Layanan";
+import Karir from "./pages/Karir";
+import Blog from "./pages/Blog";
+import Privasi from "./pages/Privasi";
+import Syarat from "./pages/Syarat";
+import { Product, CartItem, Service } from "./data";
 
 export default function App() {
-  const [currentPage, setCurrentPage] = useState("beranda");
+  const [currentPage, setCurrentPage] = useState(() => {
+    const savedToken = localStorage.getItem("authToken");
+    const savedRole = localStorage.getItem("userRole");
+    if (savedToken) {
+      if (savedRole === "admin") return "admin";
+      if (savedRole === "teknisi") return "teknisi";
+    }
+    return "beranda";
+  });
   const [previousPage, setPreviousPage] = useState("beranda");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedProductForCheckout, setSelectedProductForCheckout] =
     useState<Product | null>(null);
-  const [cart, setCart] = useState<Product[]>(() => {
+  const [cart, setCart] = useState<CartItem[]>(() => {
     const savedCart = localStorage.getItem("cart");
     return savedCart ? JSON.parse(savedCart) : [];
   });
@@ -52,32 +65,115 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    // Restore admin/teknisi page on refresh if user is logged in
-    const savedToken = localStorage.getItem("authToken");
-    const savedRole = localStorage.getItem("userRole");
-
-    if (savedToken && savedRole && currentPage === "beranda") {
-      if (savedRole === "admin") {
-        setCurrentPage("admin");
-      } else if (savedRole === "teknisi") {
-        setCurrentPage("teknisi");
-      }
+    if (
+      (currentPage === "admin" || currentPage === "teknisi") &&
+      !(
+        (authToken && userRole === "admin" && currentPage === "admin") ||
+        (authToken && userRole === "teknisi" && currentPage === "teknisi")
+      )
+    ) {
+      setCurrentPage("beranda");
+      setPreviousPage("beranda");
     }
-  }, []);
+  }, [currentPage, authToken, userRole]);
 
   const handleCheckout = (product: Product) => {
-    setCart((prev) => [...prev, product]);
+    setCart((prev) => {
+      const existing = prev.find(
+        (item) => item.id === product.id && item.itemType === "product",
+      );
+      if (existing) {
+        return prev.map((item) =>
+          item.id === product.id && item.itemType === "product"
+            ? { ...item, quantity: item.quantity + 1 }
+            : item,
+        );
+      }
+      return [
+        ...prev,
+        {
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          quantity: 1,
+          itemType: "product" as const,
+          image: product.image,
+          brand: product.brand,
+          capacity: product.capacity,
+        },
+      ];
+    });
     setCurrentPage("checkout");
   };
 
   const handleAddToCart = (product: Product) => {
-    setCart([...cart, product]);
+    setCart((prev) => {
+      const existing = prev.find(
+        (item) => item.id === product.id && item.itemType === "product",
+      );
+      if (existing) {
+        return prev.map((item) =>
+          item.id === product.id && item.itemType === "product"
+            ? { ...item, quantity: item.quantity + 1 }
+            : item,
+        );
+      }
+      return [
+        ...prev,
+        {
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          quantity: 1,
+          itemType: "product" as const,
+          image: product.image,
+          brand: product.brand,
+          capacity: product.capacity,
+        },
+      ];
+    });
   };
 
-  const handleRemoveFromCart = (index: number) => {
-    const newCart = [...cart];
-    newCart.splice(index, 1);
-    setCart(newCart);
+  const handleAddServiceToCart = (service: Service) => {
+    setCart((prev) => {
+      const existing = prev.find(
+        (item) => item.id === service.id && item.itemType === "service",
+      );
+      if (existing) {
+        return prev.map((item) =>
+          item.id === service.id && item.itemType === "service"
+            ? { ...item, quantity: item.quantity + 1 }
+            : item,
+        );
+      }
+      return [
+        ...prev,
+        {
+          id: service.id,
+          name: service.name,
+          price: service.price,
+          quantity: 1,
+          itemType: "service" as const,
+          icon: service.icon,
+          description: service.description,
+        },
+      ];
+    });
+    setCurrentPage("cart");
+  };
+
+  const handleRemoveFromCart = (id: string) => {
+    setCart((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const handleUpdateQuantity = (id: string, quantity: number) => {
+    if (quantity <= 0) {
+      handleRemoveFromCart(id);
+    } else {
+      setCart((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, quantity } : item)),
+      );
+    }
   };
 
   const handleClearCart = () => {
@@ -125,9 +221,7 @@ export default function App() {
     if (authToken && userRole === "teknisi" && currentPage === "teknisi") {
       return <TeknisiDashboard token={authToken} onLogout={handleLogout} />;
     }
-    // If trying to access admin/teknisi but not authorized, show login modal on top of beranda
-    setCurrentPage("beranda");
-    setPreviousPage("beranda");
+    return null;
   }
 
   const renderPage = () => {
@@ -136,10 +230,24 @@ export default function App() {
         return <Home setCurrentPage={setCurrentPage} />;
       case "katalog":
         return (
-          <Catalog onCheckout={handleCheckout} onAddToCart={handleAddToCart} />
+          <Catalog
+            onCheckout={handleCheckout}
+            onAddToCart={handleAddToCart}
+            onAddServiceToCart={handleAddServiceToCart}
+          />
         );
       case "tentang":
         return <About />;
+      case "layanan":
+        return <Layanan setCurrentPage={setCurrentPage} onAddServiceToCart={handleAddServiceToCart} />;
+      case "karir":
+        return <Karir setCurrentPage={setCurrentPage} />;
+      case "blog":
+        return <Blog setCurrentPage={setCurrentPage} />;
+      case "privasi":
+        return <Privasi />;
+      case "syarat":
+        return <Syarat />;
       case "kontak":
         return <Contact />;
       case "cart":
@@ -147,9 +255,11 @@ export default function App() {
           <Cart
             cart={cart}
             onRemove={handleRemoveFromCart}
+            onUpdateQuantity={handleUpdateQuantity}
             onCheckout={() => setCurrentPage("checkout")}
             onLogin={openLogin}
             authToken={authToken}
+            onBrowse={() => setCurrentPage("katalog")}
           />
         );
       case "pesanan-saya":
@@ -168,6 +278,7 @@ export default function App() {
             cart={cart}
             onClearCart={handleClearCart}
             onBack={() => setCurrentPage("cart")}
+            onSuccess={() => setCurrentPage("pesanan-saya")}
             authToken={authToken}
           />
         );
@@ -187,7 +298,7 @@ export default function App() {
         userRole={userRole}
         onLogout={handleLogout}
         onOpenLogin={openLogin}
-        cartCount={cart.length}
+        cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
       />
 
       <main className={`grow ${currentPage !== "beranda" ? "pt-20" : ""}`}>

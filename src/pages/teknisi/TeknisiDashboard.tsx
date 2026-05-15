@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Calendar, MapPin, Phone, User, CheckCircle, Clock, RefreshCw, Wrench } from 'lucide-react';
+import {
+  Calendar, MapPin, Phone, User, CheckCircle, Clock,
+  RefreshCw, Wrench, MessageSquare, Camera, ImagePlus,
+} from 'lucide-react';
 
 interface Schedule {
   id: string;
@@ -7,21 +10,112 @@ interface Schedule {
   customer_name: string;
   phone: string;
   address: string;
+  notes?: string;
   status: 'pending' | 'processing' | 'completed' | 'cancelled';
   created_at: string;
 }
 
-export default function TeknisiDashboard({ token, onLogout }: { token: string; onLogout: () => void }) {
+interface OrderPhoto {
+  id: number;
+  photo_type: 'before' | 'after';
+  image: string;
+  created_at: string;
+}
+
+// ── Komponen foto didefinisikan di luar agar tidak di-reset tiap render ──
+interface PhotoSlotProps {
+  orderId: string;
+  type: 'before' | 'after';
+  photos: OrderPhoto[];
+  isUploading: boolean;
+  onUpload: (file: File) => void;
+}
+
+function PhotoSlot({ type, photos, isUploading, onUpload }: PhotoSlotProps) {
+  const isBefore = type === 'before';
+  const label = isBefore ? 'Sebelum Service' : 'Sesudah Service';
+  const borderColor = isBefore
+    ? 'border-amber-200 hover:border-amber-400 hover:bg-amber-50'
+    : 'border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50';
+  const iconColor = isBefore ? 'text-amber-400' : 'text-emerald-400';
+  const textColor = isBefore ? 'text-amber-500' : 'text-emerald-500';
+  const labelColor = isBefore ? 'text-amber-700' : 'text-emerald-700';
+
+  return (
+    <div>
+      <p className={`text-xs font-bold mb-1.5 ${labelColor}`}>{label}</p>
+      <div className="space-y-1.5">
+        {photos.map((photo) => (
+          <img
+            key={photo.id}
+            src={photo.image}
+            alt={label}
+            className="w-full h-28 object-cover rounded-lg border border-slate-200 cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() => window.open(photo.image, '_blank')}
+          />
+        ))}
+        <label
+          className={`flex flex-col items-center justify-center w-full h-20 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+            isUploading ? 'border-slate-200 bg-slate-50 cursor-not-allowed' : borderColor
+          }`}
+        >
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            disabled={isUploading}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) onUpload(file);
+              e.target.value = '';
+            }}
+          />
+          {isUploading ? (
+            <div className="w-5 h-5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <>
+              <ImagePlus className={`w-5 h-5 mb-0.5 ${iconColor}`} />
+              <span className={`text-xs ${textColor}`}>
+                {photos.length > 0 ? '+ Tambah' : 'Upload Foto'}
+              </span>
+            </>
+          )}
+        </label>
+      </div>
+    </div>
+  );
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+export default function TeknisiDashboard({
+  token,
+  onLogout,
+}: {
+  token: string;
+  onLogout: () => void;
+}) {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [orderPhotos, setOrderPhotos] = useState<Record<string, OrderPhoto[]>>({});
+  const [uploadingPhoto, setUploadingPhoto] = useState<Record<string, boolean>>({});
 
-  // 🔥 LOCK biar gak spam request
   const isFetchingRef = useRef(false);
-  // 🔥 Track pending update untuk skip auto-refresh
   const pendingUpdateRef = useRef<string | null>(null);
+
+  const fetchPhotos = useCallback(async (orderId: string) => {
+    try {
+      const res = await fetch(`/api/orders/${orderId}/photos`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.success) {
+        setOrderPhotos((prev) => ({ ...prev, [orderId]: data.data }));
+      }
+    } catch {}
+  }, [token]);
 
   const fetchSchedules = useCallback(async (isRefresh = false) => {
     if (isFetchingRef.current) return;
@@ -29,20 +123,16 @@ export default function TeknisiDashboard({ token, onLogout }: { token: string; o
 
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
-
     setError('');
 
     try {
-      const response = await fetch('/api/teknisi/jadwal', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const res = await fetch('/api/teknisi/jadwal', {
+        headers: { Authorization: `Bearer ${token}` },
       });
-
-      const data = await response.json();
-
+      const data = await res.json();
       if (data.success) {
         setSchedules(data.data);
+        data.data.forEach((s: Schedule) => fetchPhotos(s.id));
       } else {
         setError(data.error || 'Gagal memuat jadwal');
       }
@@ -53,89 +143,86 @@ export default function TeknisiDashboard({ token, onLogout }: { token: string; o
       setRefreshing(false);
       isFetchingRef.current = false;
     }
-  }, [token]);
+  }, [token, fetchPhotos]);
 
-  // 🔥 FIX: jangan pakai dependency function (biar gak loop aneh)
   useEffect(() => {
     fetchSchedules();
-
-    // Auto-refresh saat user kembali ke tab ini
-    const handleFocus = () => {
-      console.log('🔄 Tab focused - refreshing jadwal');
-      fetchSchedules(true);
-    };
-
+    const handleFocus = () => fetchSchedules(true);
     window.addEventListener('focus', handleFocus);
-
-    // Periodic refresh setiap 30 detik untuk detect perubahan dari admin
-    // Skip jika ada update status yang pending (check via ref, bukan state)
     const intervalId = setInterval(() => {
-      if (!pendingUpdateRef.current) {
-        fetchSchedules(true);
-      }
+      if (!pendingUpdateRef.current) fetchSchedules(true);
     }, 30000);
-
     return () => {
       window.removeEventListener('focus', handleFocus);
       clearInterval(intervalId);
     };
-  }, []); // penting: kosong
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateStatus = async (id: string, newStatus: string) => {
-    console.log('🔄 updateStatus called:', { id, newStatus });
-    
     setUpdatingId(id);
-    pendingUpdateRef.current = id; // 🔥 Track pending update
+    pendingUpdateRef.current = id;
 
-    // 🎯 Optimistic update - langsung ubah state sebelum server response
     const oldSchedules = schedules;
-    const updatedSchedules = schedules.map(s => 
-      s.id === id ? { ...s, status: newStatus as Schedule['status'] } : s
-    );
-    
-    console.log('✅ Optimistic update applied');
-    setSchedules(updatedSchedules);
+    setSchedules(schedules.map((s) =>
+      s.id === id ? { ...s, status: newStatus as Schedule['status'] } : s,
+    ));
 
     try {
-      const response = await fetch(`/api/teknisi/orders/${id}/status`, {
+      const res = await fetch(`/api/teknisi/orders/${id}/status`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ status: newStatus }),
       });
-
-      const data = await response.json();
-      console.log('📡 Server response:', { status: response.status, data });
-
-      if (!response.ok || !data.success) {
-        console.error('❌ Server rejected:', data.error);
+      const data = await res.json();
+      if (!res.ok || !data.success) {
         setSchedules(oldSchedules);
         alert(data.error || 'Gagal memperbarui status');
-        // Clear pending update jika gagal
         pendingUpdateRef.current = null;
         setUpdatingId(null);
       } else {
-        console.log('✨ Status updated successfully');
-        // Delay lebih lama (1.5 detik) untuk memastikan database ter-update
         setTimeout(() => {
-          console.log('🔄 Refreshing jadwal after delay...');
           fetchSchedules(true);
-          // Clear pending update setelah fetch selesai
           pendingUpdateRef.current = null;
           setUpdatingId(null);
         }, 1500);
       }
-    } catch (error) {
-      console.error('❌ Network error:', error);
+    } catch {
       setSchedules(oldSchedules);
       alert('Gagal memperbarui status');
-      // Clear pending update jika error
       pendingUpdateRef.current = null;
       setUpdatingId(null);
     }
   };
+
+  const uploadPhoto = useCallback(
+    async (orderId: string, type: 'before' | 'after', file: File) => {
+      const key = `${orderId}-${type}`;
+      setUploadingPhoto((prev) => ({ ...prev, [key]: true }));
+
+      const formData = new FormData();
+      formData.append('photo', file);
+      formData.append('type', type);
+
+      try {
+        const res = await fetch(`/api/teknisi/orders/${orderId}/photos`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        });
+        const data = await res.json();
+        if (data.success) {
+          await fetchPhotos(orderId);
+        } else {
+          alert(data.error || 'Gagal upload foto');
+        }
+      } catch {
+        alert('Gagal upload foto, periksa koneksi internet');
+      } finally {
+        setUploadingPhoto((prev) => ({ ...prev, [key]: false }));
+      }
+    },
+    [token, fetchPhotos],
+  );
 
   const getStatusBadge = (status: Schedule['status']) => {
     switch (status) {
@@ -152,6 +239,7 @@ export default function TeknisiDashboard({ token, onLogout }: { token: string; o
 
   return (
     <div className="min-h-screen bg-slate-50">
+      {/* Header */}
       <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
@@ -187,15 +275,12 @@ export default function TeknisiDashboard({ token, onLogout }: { token: string; o
 
         {loading ? (
           <div className="flex justify-center p-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
           </div>
         ) : error ? (
           <div className="p-4 bg-red-50 text-red-600 rounded-lg flex items-center justify-between">
             <span>{error}</span>
-            <button
-              onClick={() => fetchSchedules()}
-              className="text-sm font-medium underline hover:no-underline"
-            >
+            <button onClick={() => fetchSchedules()} className="text-sm font-medium underline hover:no-underline">
               Coba lagi
             </button>
           </div>
@@ -207,72 +292,116 @@ export default function TeknisiDashboard({ token, onLogout }: { token: string; o
           </div>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {schedules.map((schedule) => (
-              <div
-                key={schedule.id}
-                className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col"
-              >
-                <div className="p-6 grow">
-                  <div className="flex justify-between items-start mb-4">
-                    {getStatusBadge(schedule.status)}
-                    <span className="text-xs text-slate-400">
-                      {new Date(schedule.created_at).toLocaleDateString('id-ID', {
-                        day: 'numeric', month: 'long', year: 'numeric'
-                      })}
-                    </span>
+            {schedules.map((schedule) => {
+              const photos = orderPhotos[schedule.id] || [];
+              return (
+                <div
+                  key={schedule.id}
+                  className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col"
+                >
+                  <div className="p-6 grow">
+                    {/* Header */}
+                    <div className="flex justify-between items-start mb-4">
+                      {getStatusBadge(schedule.status)}
+                      <span className="text-xs text-slate-400">
+                        {new Date(schedule.created_at).toLocaleDateString('id-ID', {
+                          day: 'numeric', month: 'long', year: 'numeric',
+                        })}
+                      </span>
+                    </div>
+
+                    <h3 className="text-lg font-bold text-slate-900 mb-4">
+                      {schedule.product_name}
+                    </h3>
+
+                    {/* Info pelanggan */}
+                    <div className="space-y-2.5">
+                      <div className="flex items-start">
+                        <User className="w-4 h-4 text-slate-400 mr-2 mt-0.5 shrink-0" />
+                        <span className="text-sm text-slate-600">{schedule.customer_name}</span>
+                      </div>
+                      <div className="flex items-start">
+                        <Phone className="w-4 h-4 text-slate-400 mr-2 mt-0.5 shrink-0" />
+                        <a href={`tel:${schedule.phone}`} className="text-sm text-blue-600 hover:underline">
+                          {schedule.phone}
+                        </a>
+                      </div>
+                      <div className="flex items-start">
+                        <MapPin className="w-4 h-4 text-slate-400 mr-2 mt-0.5 shrink-0" />
+                        <span className="text-sm text-slate-600 line-clamp-2">{schedule.address}</span>
+                      </div>
+
+                      {/* Keluhan */}
+                      {schedule.notes && (
+                        <div className="flex items-start pt-2.5 mt-1 border-t border-amber-100">
+                          <MessageSquare className="w-4 h-4 text-amber-500 mr-2 mt-0.5 shrink-0" />
+                          <div>
+                            <span className="text-xs font-bold text-amber-700 block mb-0.5">
+                              Keluhan Pelanggan
+                            </span>
+                            <span className="text-sm text-slate-700">{schedule.notes}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Dokumentasi Foto */}
+                    <div className="mt-5 pt-4 border-t border-slate-100">
+                      <h4 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-1.5">
+                        <Camera className="w-4 h-4 text-slate-500" />
+                        Dokumentasi Foto
+                      </h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        <PhotoSlot
+                          orderId={schedule.id}
+                          type="before"
+                          photos={photos.filter((p) => p.photo_type === 'before')}
+                          isUploading={!!uploadingPhoto[`${schedule.id}-before`]}
+                          onUpload={(file) => uploadPhoto(schedule.id, 'before', file)}
+                        />
+                        <PhotoSlot
+                          orderId={schedule.id}
+                          type="after"
+                          photos={photos.filter((p) => p.photo_type === 'after')}
+                          isUploading={!!uploadingPhoto[`${schedule.id}-after`]}
+                          onUpload={(file) => uploadPhoto(schedule.id, 'after', file)}
+                        />
+                      </div>
+                    </div>
                   </div>
 
-                  <h3 className="text-lg font-bold text-slate-900 mb-4">{schedule.product_name}</h3>
-
-                  <div className="space-y-3">
-                    <div className="flex items-start">
-                      <User className="w-4 h-4 text-slate-400 mr-2 mt-0.5 shrink-0" />
-                      <span className="text-sm text-slate-600">{schedule.customer_name}</span>
-                    </div>
-                    <div className="flex items-start">
-                      <Phone className="w-4 h-4 text-slate-400 mr-2 mt-0.5 shrink-0" />
-                      <a
-                        href={`tel:${schedule.phone}`}
-                        className="text-sm text-blue-600 hover:underline"
+                  {/* Action Buttons */}
+                  <div className="bg-slate-50 p-4 border-t border-slate-100 flex gap-3">
+                    {schedule.status === 'pending' && (
+                      <button
+                        onClick={() => updateStatus(schedule.id, 'processing')}
+                        disabled={updatingId === schedule.id}
+                        className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed"
                       >
-                        {schedule.phone}
-                      </a>
-                    </div>
-                    <div className="flex items-start">
-                      <MapPin className="w-4 h-4 text-slate-400 mr-2 mt-0.5 shrink-0" />
-                      <span className="text-sm text-slate-600 line-clamp-2">{schedule.address}</span>
-                    </div>
+                        {updatingId === schedule.id ? (
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <><Clock className="w-4 h-4 mr-2" /> Mulai Proses</>
+                        )}
+                      </button>
+                    )}
+                    {schedule.status === 'processing' && (
+                      <button
+                        onClick={() => updateStatus(schedule.id, 'completed')}
+                        disabled={updatingId === schedule.id}
+                        className="flex-1 bg-emerald-600 text-white py-2 px-4 rounded-lg text-sm font-bold hover:bg-emerald-700 transition-colors flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {updatingId === schedule.id ? (
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <><CheckCircle className="w-4 h-4 mr-2" /> Selesai</>
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
-
-                <div className="bg-slate-50 p-4 border-t border-slate-100 flex gap-3">
-                  {schedule.status === 'pending' && (
-                    <button
-                      onClick={() => updateStatus(schedule.id, 'processing')}
-                      disabled={updatingId === schedule.id}
-                      className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      {updatingId === schedule.id
-                        ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        : <><Clock className="w-4 h-4 mr-2" /> Mulai Proses</>
-                      }
-                    </button>
-                  )}
-                  {schedule.status === 'processing' && (
-                    <button
-                      onClick={() => updateStatus(schedule.id, 'completed')}
-                      disabled={updatingId === schedule.id}
-                      className="flex-1 bg-emerald-600 text-white py-2 px-4 rounded-lg text-sm font-bold hover:bg-emerald-700 transition-colors flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      {updatingId === schedule.id
-                        ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        : <><CheckCircle className="w-4 h-4 mr-2" /> Selesai</>
-                      }
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>

@@ -18,6 +18,19 @@ export interface Service {
   icon: string;
 }
 
+export interface CartItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  itemType: "product" | "service";
+  image?: string;
+  brand?: string;
+  capacity?: string;
+  icon?: string;
+  description?: string;
+}
+
 export const products: Product[] = [
   {
     id: "1",
@@ -127,34 +140,34 @@ export const products: Product[] = [
 export const services: Service[] = [
   {
     id: "s1",
-    name: "Instalasi AC Profesional",
-    price: 350000,
+    name: "Cuci AC (Cleaning)",
+    price: 90000,
     description:
-      "Pemasangan unit baru untuk rumah dan kantor dengan standar tertinggi. Termasuk proses vakum dan garansi instalasi.",
-    icon: "snowflake",
-  },
-  {
-    id: "s2",
-    name: "Servis & Perawatan Rutin",
-    price: 75000,
-    description:
-      "Pembersihan menyeluruh unit indoor dan outdoor, pengecekan freon dan kelistrikan. Menjaga AC prima dan hemat energi.",
+      "Pembersihan menyeluruh unit indoor dan outdoor untuk menjaga performa optimal dan mencegah kerusakan dini.",
     icon: "droplets",
   },
   {
-    id: "s3",
-    name: "Perbaikan Cepat & Tuntas",
+    id: "s2",
+    name: "Tambah / Isi Freon",
     price: 150000,
     description:
-      "Solusi cepat untuk AC tidak dingin, bocor, mati total, atau berisik. Diagnosa transparan dengan garansi 30 hari.",
+      "Pengecekan tekanan dan pengisian freon dengan refrigerant asli (R32/R410A/R22) untuk pendinginan maksimal.",
+    icon: "gauge",
+  },
+  {
+    id: "s3",
+    name: "Bongkar Pasang AC",
+    price: 350000,
+    description:
+      "Jasa pemindahan AC atau pemasangan unit baru oleh teknisi bersertifikat dengan pengerjaan rapi dan bergaransi.",
     icon: "wrench",
   },
   {
     id: "s4",
-    name: "Penjualan Unit AC",
-    price: 3100000,
+    name: "Perbaikan Kelistrikan",
+    price: 250000,
     description:
-      "Tersedia berbagai merk AC berkualitas (Daikin, Panasonic, Sharp, Gree, LG, Samsung) dengan harga kompetitif dan garansi resmi.",
-    icon: "shopping-bag",
+      "Perbaikan masalah kelistrikan atau modul PCB AC dengan diagnosa transparan dan spare part original bergaransi.",
+    icon: "zap",
   },
 ];

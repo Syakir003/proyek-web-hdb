@@ -8,16 +8,32 @@ import {
   Phone,
   MapPin,
   Lock,
+  Snowflake,
+  Droplets,
+  Wrench,
+  ShoppingBag,
+  MessageSquare,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { Product } from "../data";
+import { CartItem } from "../data";
 
 interface CheckoutProps {
-  cart: Product[];
+  cart: CartItem[];
   onBack: () => void;
+  onSuccess?: () => void;
   onClearCart: () => void;
   authToken?: string | null;
 }
+
+const getServiceIcon = (iconName?: string) => {
+  switch (iconName) {
+    case "snowflake": return <Snowflake className="w-6 h-6 text-sky-500" />;
+    case "droplets": return <Droplets className="w-6 h-6 text-sky-500" />;
+    case "wrench": return <Wrench className="w-6 h-6 text-sky-500" />;
+    case "shopping-bag": return <ShoppingBag className="w-6 h-6 text-sky-500" />;
+    default: return <Wrench className="w-6 h-6 text-sky-500" />;
+  }
+};
 
 // Declare Snap global variable
 declare global {
@@ -29,6 +45,7 @@ declare global {
 export default function Checkout({
   cart,
   onBack,
+  onSuccess,
   onClearCart,
   authToken,
 }: CheckoutProps) {
@@ -36,7 +53,10 @@ export default function Checkout({
     customerName: "",
     phone: "",
     address: "",
+    notes: "",
   });
+
+  const hasService = cart.some((item) => item.itemType === "service");
   const [status, setStatus] = useState<
     "idle" | "loading" | "success" | "error"
   >("idle");
@@ -117,12 +137,14 @@ export default function Checkout({
     id: item.id,
     name: item.name,
     price: Number(item.price) || 0,
-    quantity: 1,
+    quantity: item.quantity,
+    itemType: item.itemType,
   }));
   const totalPrice = items.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0,
   );
+  const totalQuantity = cart.reduce((sum, item) => sum + item.quantity, 0);
   const productNames = cart.map((i) => i.name).join(", ");
   const productIds = cart.map((i) => i.id).join(",");
 
@@ -171,11 +193,12 @@ export default function Checkout({
           productId: productIds,
           productName: productNames,
           price: totalPrice,
-          quantity: cart.length,
+          quantity: totalQuantity,
           items: items,
           customerName: formData.customerName,
           phone: formData.phone,
           address: formData.address,
+          notes: formData.notes || null,
         }),
       });
 
@@ -242,7 +265,7 @@ export default function Checkout({
             console.warn("⚠️ Failed to sync payment status:", syncErr);
           }
 
-          setOrderedCount(cart.length);
+          setOrderedCount(totalQuantity);
           setStatus("success");
           onClearCart();
           isSubmittingRef.current = false;
@@ -266,7 +289,7 @@ export default function Checkout({
             console.warn("⚠️ Failed to sync pending status:", syncErr);
           }
 
-          setOrderedCount(cart.length);
+          setOrderedCount(totalQuantity);
           setStatus("success");
           onClearCart();
           isSubmittingRef.current = false;
@@ -353,7 +376,7 @@ export default function Checkout({
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={onBack}
+              onClick={() => onSuccess ? onSuccess() : onBack()}
               className="w-full bg-sky-500 text-white font-bold py-3 px-4 rounded-xl hover:bg-sky-600 transition-all shadow-lg shadow-sky-500/30 mb-3"
             >
               Lihat Pesanan Saya
@@ -467,7 +490,7 @@ export default function Checkout({
             >
               <h3 className="font-bold text-slate-900 mb-4 text-lg flex items-center gap-2">
                 <span className="text-2xl">📦</span> Ringkasan Pesanan (
-                {cart.length} Barang)
+                {totalQuantity} Item)
               </h3>
               <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
                 {cart.map((item, index) => (
@@ -478,23 +501,36 @@ export default function Checkout({
                     transition={{ delay: index * 0.05 }}
                     className="flex items-center space-x-3 bg-white p-3 rounded-lg border border-slate-100"
                   >
-                    <div className="w-16 h-16 bg-gradient-to-br from-slate-100 to-slate-50 rounded-lg overflow-hidden shrink-0 border border-slate-200">
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="w-full h-full object-cover"
-                        referrerPolicy="no-referrer"
-                      />
+                    <div className="w-16 h-16 bg-gradient-to-br from-slate-100 to-slate-50 rounded-lg overflow-hidden shrink-0 border border-slate-200 flex items-center justify-center">
+                      {item.itemType === "product" && item.image ? (
+                        <img
+                          src={item.image}
+                          alt={item.name}
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        getServiceIcon(item.icon)
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="font-bold text-slate-900 line-clamp-1 text-sm">
                         {item.name}
                       </h4>
-                      <p className="text-xs text-slate-500 mb-1">
-                        {item.brand} • {item.capacity}
-                      </p>
+                      {item.itemType === "product" ? (
+                        <p className="text-xs text-slate-500 mb-1">
+                          {item.brand} • {item.capacity}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-slate-500 mb-1">Layanan</p>
+                      )}
                       <p className="font-bold text-sky-600 text-sm">
-                        {formatRupiah(item.price)}
+                        {formatRupiah(item.price * item.quantity)}
+                        {item.quantity > 1 && (
+                          <span className="text-xs font-normal text-slate-400 ml-1">
+                            × {item.quantity}
+                          </span>
+                        )}
                       </p>
                     </div>
                   </motion.div>
@@ -603,6 +639,36 @@ export default function Checkout({
                   placeholder="Tuliskan alamat lengkap termasuk kota dan kodepos..."
                 ></textarea>
               </motion.div>
+
+              {/* Keluhan Kerusakan - hanya tampil jika ada layanan */}
+              {hasService && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.22 }}
+                  className="p-5 bg-amber-50 border-2 border-amber-200 rounded-xl"
+                >
+                  <label className="block text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4 text-amber-500" />
+                    Keluhan Kerusakan
+                    <span className="text-xs font-normal text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                      Wajib untuk pesanan layanan
+                    </span>
+                  </label>
+                  <textarea
+                    name="notes"
+                    required={hasService}
+                    rows={3}
+                    value={formData.notes}
+                    onChange={handleChange}
+                    className="w-full bg-white border-2 border-amber-200 rounded-lg px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 transition-all resize-none placeholder-slate-400"
+                    placeholder="Contoh: AC tidak dingin, AC bocor, AC berbunyi berisik, suhu tidak turun, dll."
+                  ></textarea>
+                  <p className="text-xs text-amber-700 mt-2">
+                    Jelaskan kerusakan secara detail agar teknisi dapat mempersiapkan alat dan spare part yang diperlukan.
+                  </p>
+                </motion.div>
+              )}
 
               {/* Total & Payment Button */}
               <motion.div

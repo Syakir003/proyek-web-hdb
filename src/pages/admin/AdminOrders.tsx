@@ -1,11 +1,20 @@
 import React, { useState, useEffect } from "react";
-import { Check, X, Clock, Search, Trash2, UserCog } from "lucide-react";
+import { Check, X, Clock, Search, Trash2, UserCog, MessageSquare, Camera, ChevronDown, ChevronUp } from "lucide-react";
+
+interface OrderPhoto {
+  id: number;
+  photo_type: 'before' | 'after';
+  image: string;
+  created_at: string;
+}
 
 export default function AdminOrders({ token }: { token: string }) {
   const [orders, setOrders] = useState<any[]>([]);
   const [teknisiList, setTeknisiList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [expandedPhotos, setExpandedPhotos] = useState<Record<string, boolean>>({});
+  const [orderPhotos, setOrderPhotos] = useState<Record<string, OrderPhoto[]>>({});
 
   useEffect(() => {
     fetchOrders();
@@ -103,6 +112,20 @@ export default function AdminOrders({ token }: { token: string }) {
       if (response.ok) fetchOrders();
     } catch (error) {
       console.error("Failed to delete order", error);
+    }
+  };
+
+  const togglePhotos = async (orderId: string) => {
+    const isOpen = expandedPhotos[orderId];
+    setExpandedPhotos(prev => ({ ...prev, [orderId]: !isOpen }));
+    if (!isOpen && !orderPhotos[orderId]) {
+      try {
+        const res = await fetch(`/api/orders/${orderId}/photos`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (data.success) setOrderPhotos(prev => ({ ...prev, [orderId]: data.data }));
+      } catch {}
     }
   };
 
@@ -232,6 +255,7 @@ export default function AdminOrders({ token }: { token: string }) {
               <th className="p-4 font-medium">Total</th>
               <th className="p-4 font-medium">Teknisi</th>
               <th className="p-4 font-medium">Status</th>
+              <th className="p-4 font-medium">Foto</th>
               <th className="p-4 font-medium text-right">Aksi</th>
             </tr>
           </thead>
@@ -250,8 +274,8 @@ export default function AdminOrders({ token }: { token: string }) {
               </tr>
             ) : (
               filteredOrders.map((order) => (
+                <React.Fragment key={order.id}>
                 <tr
-                  key={order.id}
                   className="hover:bg-slate-50 transition-colors"
                 >
                   <td className="p-4 text-sm font-medium text-slate-900">
@@ -264,7 +288,13 @@ export default function AdminOrders({ token }: { token: string }) {
                     <div className="text-sm text-slate-500">{order.phone}</div>
                   </td>
                   <td className="p-4 text-sm text-slate-700">
-                    {order.product_name}
+                    <div>{order.product_name}</div>
+                    {order.notes && (
+                      <div className="flex items-start gap-1 mt-1">
+                        <MessageSquare className="w-3 h-3 text-amber-500 mt-0.5 shrink-0" />
+                        <span className="text-xs text-amber-700 line-clamp-2">{order.notes}</span>
+                      </div>
+                    )}
                   </td>
                   <td className="p-4 text-sm text-slate-700 text-center font-medium">
                     {order.total_quantity}
@@ -304,6 +334,16 @@ export default function AdminOrders({ token }: { token: string }) {
                     </div>
                   </td>
                   <td className="p-4">{getStatusBadge(order.status)}</td>
+                  <td className="p-4">
+                    <button
+                      onClick={() => togglePhotos(order.id)}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 hover:bg-sky-50 hover:text-sky-600 text-slate-500 text-xs font-medium transition-colors"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      Foto
+                      {expandedPhotos[order.id] ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                    </button>
+                  </td>
                   <td className="p-4 text-right space-x-2">
                     {(order.status === "pending" ||
                       order.status === "processing") && (
@@ -333,6 +373,45 @@ export default function AdminOrders({ token }: { token: string }) {
                     </button>
                   </td>
                 </tr>
+                {expandedPhotos[order.id] && (
+                  <tr className="bg-slate-50">
+                    <td colSpan={11} className="px-6 py-4">
+                      {!orderPhotos[order.id] ? (
+                        <p className="text-sm text-slate-400">Memuat foto...</p>
+                      ) : orderPhotos[order.id].length === 0 ? (
+                        <p className="text-sm text-slate-400 flex items-center gap-1.5">
+                          <Camera className="w-4 h-4" /> Belum ada foto yang diunggah teknisi.
+                        </p>
+                      ) : (
+                        <div className="flex flex-wrap gap-4">
+                          {(['before', 'after'] as const).map(type => {
+                            const photos = orderPhotos[order.id].filter(p => p.photo_type === type);
+                            if (photos.length === 0) return null;
+                            return (
+                              <div key={type}>
+                                <p className={`text-xs font-bold mb-2 ${type === 'before' ? 'text-amber-700' : 'text-emerald-700'}`}>
+                                  {type === 'before' ? 'Sebelum Service' : 'Sesudah Service'}
+                                </p>
+                                <div className="flex gap-2">
+                                  {photos.map(photo => (
+                                    <img
+                                      key={photo.id}
+                                      src={photo.image}
+                                      alt={type}
+                                      className="w-28 h-28 object-cover rounded-lg border border-slate-200 cursor-pointer hover:opacity-80 transition-opacity"
+                                      onClick={() => window.open(photo.image, '_blank')}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                )}
+                </React.Fragment>
               ))
             )}
           </tbody>
@@ -369,6 +448,15 @@ export default function AdminOrders({ token }: { token: string }) {
                 <span className="font-medium">Produk:</span>{" "}
                 {order.product_name}
               </div>
+              {order.notes && (
+                <div className="flex items-start gap-1.5 mb-2 p-2 bg-amber-50 rounded-lg border border-amber-100">
+                  <MessageSquare className="w-3.5 h-3.5 text-amber-500 mt-0.5 shrink-0" />
+                  <div>
+                    <span className="text-xs font-semibold text-amber-700 block">Keluhan</span>
+                    <span className="text-xs text-amber-800">{order.notes}</span>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-2 text-sm mb-3">
                 <div>
@@ -410,6 +498,42 @@ export default function AdminOrders({ token }: { token: string }) {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div className="mb-3">
+                <button
+                  onClick={() => togglePhotos(order.id)}
+                  className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-sky-600 transition-colors"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  {expandedPhotos[order.id] ? 'Sembunyikan Foto' : 'Lihat Foto Teknisi'}
+                  {expandedPhotos[order.id] ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                </button>
+                {expandedPhotos[order.id] && (
+                  <div className="mt-2">
+                    {!orderPhotos[order.id] ? (
+                      <p className="text-xs text-slate-400">Memuat...</p>
+                    ) : orderPhotos[order.id].length === 0 ? (
+                      <p className="text-xs text-slate-400">Belum ada foto teknisi.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {orderPhotos[order.id].map(photo => (
+                          <div key={photo.id}>
+                            <p className={`text-xs font-semibold mb-1 ${photo.photo_type === 'before' ? 'text-amber-600' : 'text-emerald-600'}`}>
+                              {photo.photo_type === 'before' ? 'Sebelum' : 'Sesudah'}
+                            </p>
+                            <img
+                              src={photo.image}
+                              alt={photo.photo_type}
+                              className="w-24 h-24 object-cover rounded-lg border border-slate-200 cursor-pointer"
+                              onClick={() => window.open(photo.image, '_blank')}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end gap-2">

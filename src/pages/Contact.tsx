@@ -53,10 +53,9 @@ export default function Contact() {
       className="bg-white min-h-screen"
     >
       {/* Hero */}
-      <div className="relative bg-gradient-to-br from-sky-700 via-sky-600 to-sky-400 text-white py-28 overflow-hidden">
-        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&q=80&w=1200')] bg-cover bg-center opacity-10" />
-        <div className="absolute top-0 right-0 w-96 h-96 bg-sky-400/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-        <div className="absolute bottom-0 left-0 w-72 h-72 bg-blue-600/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
+      <div className="relative bg-slate-900 text-white py-28 overflow-hidden">
+        <div className="absolute inset-0 bg-[url('/images/TOKO.jpg')] bg-cover bg-center" />
+        <div className="absolute inset-0 bg-gradient-to-r from-sky-900/90 via-sky-800/75 to-sky-700/60" />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
           <motion.div
@@ -280,7 +279,7 @@ export default function Contact() {
           </div>
           <div className="rounded-3xl overflow-hidden border border-slate-200 shadow-md h-72">
             <iframe
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3953.2!2d112.532!3d-7.544!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zN8KwMzInMzguNCJTIDExMsKwMzEnNTUuMiJF!5e0!3m2!1sen!2sid!4v1620000000000!5m2!1sen!2sid"
+              src="https://maps.google.com/maps?q=Jl+Gajah+Mada+No.19+Seduri+Mojosari+Kabupaten+Mojokerto+Jawa+Timur+61382&output=embed&hl=id&z=17"
               width="100%"
               height="100%"
               style={{ border: 0 }}
@@ -290,9 +289,20 @@ export default function Contact() {
               title="Lokasi HDB Airconds"
             />
           </div>
-          <div className="flex items-center justify-center gap-2 mt-4 text-slate-500 text-sm">
-            <MapPin className="w-4 h-4 text-sky-500" />
-            Jl. Gajah Mada No.19, Rw. III, Seduri, Kec. Mojosari, Kabupaten Mojokerto, Jawa Timur 61382
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-4">
+            <div className="flex items-center gap-2 text-slate-500 text-sm">
+              <MapPin className="w-4 h-4 text-sky-500 flex-shrink-0" />
+              Jl. Gajah Mada No.19, Rw. III, Seduri, Kec. Mojosari, Kabupaten Mojokerto, Jawa Timur 61382
+            </div>
+            <a
+              href="https://maps.app.goo.gl/CG261pF6UoRMrgNJ9"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-sky-600 hover:text-sky-700 text-sm font-semibold flex-shrink-0 hover:underline"
+            >
+              <ArrowRight className="w-3.5 h-3.5" />
+              Buka di Google Maps
+            </a>
           </div>
         </div>
       </div>

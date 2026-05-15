@@ -3,9 +3,26 @@ import { Wind, Phone, Mail, MapPin, Facebook, Instagram, ArrowRight, Clock } fro
 import { motion } from "motion/react";
 
 const footerLinks = {
-  company: ["Tentang Kami", "Tim Kami", "Karir", "Blog & Tips"],
-  services: ["Instalasi AC", "Perawatan AC", "Perbaikan AC", "Isi Freon", "Bongkar Pasang"],
-  products: ["AC Residential", "AC Commercial", "AC Industrial", "AC Portable", "Spare Parts"],
+  company: [
+    { label: "Tentang Kami", page: "tentang" },
+    { label: "Tim Kami", page: "tentang" },
+    { label: "Karir", page: "karir" },
+    { label: "Blog & Tips", page: "blog" },
+  ],
+  services: [
+    { label: "Instalasi AC", page: "layanan" },
+    { label: "Perawatan AC", page: "layanan" },
+    { label: "Perbaikan AC", page: "layanan" },
+    { label: "Isi Freon", page: "layanan" },
+    { label: "Bongkar Pasang", page: "layanan" },
+  ],
+  products: [
+    { label: "AC Residential", page: "katalog" },
+    { label: "AC Commercial", page: "katalog" },
+    { label: "AC Industrial", page: "katalog" },
+    { label: "AC Portable", page: "katalog" },
+    { label: "Spare Parts", page: "katalog" },
+  ],
 };
 
 export default function Footer({ setCurrentPage }: { setCurrentPage: (page: string) => void }) {
@@ -75,8 +92,8 @@ export default function Footer({ setCurrentPage }: { setCurrentPage: (page: stri
             <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Perusahaan</h4>
             <ul className="space-y-2.5">
               {footerLinks.company.map((link) => (
-                <li key={link}>
-                  <button onClick={() => setCurrentPage("tentang")} className="text-slate-400 hover:text-sky-400 text-sm transition-colors">{link}</button>
+                <li key={link.label}>
+                  <button onClick={() => setCurrentPage(link.page)} className="text-slate-400 hover:text-sky-400 text-sm transition-colors">{link.label}</button>
                 </li>
               ))}
             </ul>
@@ -87,8 +104,8 @@ export default function Footer({ setCurrentPage }: { setCurrentPage: (page: stri
             <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Layanan</h4>
             <ul className="space-y-2.5">
               {footerLinks.services.map((link) => (
-                <li key={link}>
-                  <button onClick={() => setCurrentPage("kontak")} className="text-slate-400 hover:text-sky-400 text-sm transition-colors">{link}</button>
+                <li key={link.label}>
+                  <button onClick={() => setCurrentPage(link.page)} className="text-slate-400 hover:text-sky-400 text-sm transition-colors">{link.label}</button>
                 </li>
               ))}
             </ul>
@@ -99,8 +116,8 @@ export default function Footer({ setCurrentPage }: { setCurrentPage: (page: stri
             <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Produk</h4>
             <ul className="space-y-2.5">
               {footerLinks.products.map((link) => (
-                <li key={link}>
-                  <button onClick={() => setCurrentPage("katalog")} className="text-slate-400 hover:text-sky-400 text-sm transition-colors">{link}</button>
+                <li key={link.label}>
+                  <button onClick={() => setCurrentPage(link.page)} className="text-slate-400 hover:text-sky-400 text-sm transition-colors">{link.label}</button>
                 </li>
               ))}
             </ul>
@@ -124,8 +141,8 @@ export default function Footer({ setCurrentPage }: { setCurrentPage: (page: stri
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-slate-500 text-xs">
             <span>© {currentYear} HDB Airconds. Semua hak dilindungi.</span>
             <div className="flex items-center gap-4">
-              <button className="hover:text-sky-400 transition-colors">Kebijakan Privasi</button>
-              <button className="hover:text-sky-400 transition-colors">Syarat & Ketentuan</button>
+              <button onClick={() => setCurrentPage("privasi")} className="hover:text-sky-400 transition-colors">Kebijakan Privasi</button>
+              <button onClick={() => setCurrentPage("syarat")} className="hover:text-sky-400 transition-colors">Syarat & Ketentuan</button>
             </div>
           </div>
         </div>

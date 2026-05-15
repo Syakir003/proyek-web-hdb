@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Cormorant+Garamond:ital,wght@0,600;0,700;1,400;1,600;1,700&display=swap");
 @import "tailwindcss";
 
 @theme {
@@ -32,6 +32,22 @@ body {
   color: #334155;
 }
 
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 35s linear infinite;
+  will-change: transform;
+}
+
+.marquee-wrapper:hover .animate-marquee {
+  animation-play-state: paused;
+}
+
 h1,
 h2,
 h3,
@@ -40,7 +56,6 @@ h5,
 h6 {
   font-family: "Plus Jakarta Sans", sans-serif;
   font-weight: 700;
-  color: #0f172a;
 }
 
 /* Tailwind Utilities */
