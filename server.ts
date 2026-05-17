@@ -1409,6 +1409,67 @@ async function startServer() {
     }
   });
 
+  // ── MATERIAL CATALOG ────────────────────────────────────────────────
+
+  // GET /api/material-catalog — semua item aktif (admin & teknisi)
+  app.get('/api/material-catalog', authenticateToken, async (req: any, res) => {
+    try {
+      const isAdmin = req.user.role === 'admin';
+      const [rows] = await pool.query(
+        isAdmin
+          ? 'SELECT * FROM material_catalog ORDER BY category, name'
+          : 'SELECT * FROM material_catalog WHERE is_active = 1 ORDER BY category, name'
+      );
+      res.json({ success: true, data: rows });
+    } catch (e) {
+      res.status(500).json({ success: false, message: 'Gagal mengambil katalog' });
+    }
+  });
+
+  // POST /api/material-catalog — tambah item (admin)
+  app.post('/api/material-catalog', authenticateToken, requireAdmin, async (req: any, res) => {
+    const { name, unit, price, category } = req.body;
+    if (!name || !unit || !price) {
+      return res.status(400).json({ success: false, message: 'name, unit, price wajib diisi' });
+    }
+    try {
+      const [result]: any = await pool.query(
+        'INSERT INTO material_catalog (name, unit, price, category) VALUES (?,?,?,?)',
+        [name, unit, Number(price), category || null]
+      );
+      res.json({ success: true, data: { id: result.insertId } });
+    } catch (e) {
+      res.status(500).json({ success: false, message: 'Gagal menambah item' });
+    }
+  });
+
+  // PUT /api/material-catalog/:id — edit item (admin)
+  app.put('/api/material-catalog/:id', authenticateToken, requireAdmin, async (req: any, res) => {
+    const { name, unit, price, category } = req.body;
+    try {
+      await pool.query(
+        'UPDATE material_catalog SET name=?, unit=?, price=?, category=? WHERE id=?',
+        [name, unit, Number(price), category || null, req.params.id]
+      );
+      res.json({ success: true });
+    } catch (e) {
+      res.status(500).json({ success: false, message: 'Gagal mengubah item' });
+    }
+  });
+
+  // PATCH /api/material-catalog/:id/toggle — aktif/nonaktif (admin)
+  app.patch('/api/material-catalog/:id/toggle', authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      await pool.query(
+        'UPDATE material_catalog SET is_active = NOT is_active WHERE id=?',
+        [req.params.id]
+      );
+      res.json({ success: true });
+    } catch (e) {
+      res.status(500).json({ success: false, message: 'Gagal mengubah status' });
+    }
+  });
+
   // =========================
   // START
   // =========================
