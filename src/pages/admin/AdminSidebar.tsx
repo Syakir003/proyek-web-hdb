@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Wind,
   TrendingUp,
+  Plus,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -66,6 +67,8 @@ const menuItems: MenuItem[] = [
     label: "Laporan",
     icon: <TrendingUp className="w-5 h-5" />,
   },
+  { id: "material-catalog", label: "Katalog Material", icon: <Package className="w-5 h-5" /> },
+  { id: "additions",        label: "Penambahan Order", icon: <Plus className="w-5 h-5" /> },
 ];
 
 export default function AdminSidebar({

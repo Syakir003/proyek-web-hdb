@@ -9,6 +9,8 @@ import AdminReports from "./AdminReports";
 import AdminUsers from "./AdminUsers";
 import AdminTeam from "./AdminTeam";
 import AdminSidebar from "./AdminSidebar";
+import AdminMaterialCatalog from "./AdminMaterialCatalog";
+import AdminAdditions from "./AdminAdditions";
 
 interface AdminLayoutProps {
   onLogout: () => void;
@@ -23,6 +25,8 @@ const menuItems = [
   { id: "users",      label: "Kelola Pengguna",       emoji: "👥" },
   { id: "team",       label: "Kelola Tim",            emoji: "👤" },
   { id: "reports",    label: "Laporan",               emoji: "📊" },
+  { id: "material-catalog", label: "Katalog Material",   emoji: "🔩" },
+  { id: "additions",        label: "Penambahan Order",   emoji: "➕" },
 ];
 
 export default function AdminLayout({ onLogout, token }: AdminLayoutProps) {
@@ -52,6 +56,10 @@ export default function AdminLayout({ onLogout, token }: AdminLayoutProps) {
         return <AdminTeam token={token} />;
       case "reports":
         return <AdminReports token={token} />;
+      case "material-catalog":
+        return <AdminMaterialCatalog token={token} />;
+      case "additions":
+        return <AdminAdditions token={token} />;
       default:
         return <AdminDashboard token={token} />;
     }
