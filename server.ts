@@ -1579,6 +1579,82 @@ async function startServer() {
     }
   });
 
+  // GET /api/order-additions — list semua (admin)
+  app.get('/api/order-additions', authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const [rows]: any = await pool.query(
+        `SELECT oa.*, o.customer_name, o.phone as customer_phone,
+                u.name as initiated_by_name
+         FROM order_additions oa
+         JOIN orders o ON oa.order_id = o.id
+         LEFT JOIN users u ON oa.initiated_by_id = u.id
+         ORDER BY oa.created_at DESC`
+      );
+      // attach items + total for each
+      const result = await Promise.all(rows.map(async (row: any) => {
+        const [items]: any = await pool.query(
+          'SELECT * FROM order_addition_items WHERE order_addition_id=?', [row.id]
+        );
+        const total = items.reduce((s: number, i: any) => s + Number(i.subtotal), 0);
+        return { ...row, items, total };
+      }));
+      res.json({ success: true, data: result });
+    } catch (e) {
+      res.status(500).json({ success: false, message: 'Gagal mengambil data' });
+    }
+  });
+
+  // PATCH /api/order-additions/:id/admin-review — admin approve/reject
+  app.patch('/api/order-additions/:id/admin-review', authenticateToken, requireAdmin, async (req: any, res) => {
+    const { action, admin_notes } = req.body as { action: 'approve'|'reject'; admin_notes?: string };
+    if (!['approve','reject'].includes(action)) {
+      return res.status(400).json({ success: false, message: 'action harus approve atau reject' });
+    }
+    try {
+      const [rows]: any = await pool.query(
+        'SELECT * FROM order_additions WHERE id=?', [req.params.id]
+      );
+      if (!rows.length) return res.status(404).json({ success: false, message: 'Tidak ditemukan' });
+      if (rows[0].status !== 'pending_admin') {
+        return res.status(400).json({ success: false, message: 'Status bukan pending_admin' });
+      }
+
+      if (action === 'reject') {
+        await pool.query(
+          `UPDATE order_additions SET status='admin_rejected', admin_notes=?, updated_at=NOW() WHERE id=?`,
+          [admin_notes || null, req.params.id]
+        );
+        res.json({ success: true, status: 'admin_rejected' });
+      } else {
+        // Generate customer token
+        const token = crypto.randomBytes(32).toString('hex');
+        await pool.query(
+          `UPDATE order_additions SET status='pending_customer', customer_token=?, admin_notes=?, updated_at=NOW() WHERE id=?`,
+          [token, admin_notes || null, req.params.id]
+        );
+        // Ambil data customer untuk generate WA link
+        const [addRows]: any = await pool.query(
+          `SELECT oa.*, o.customer_name, o.phone, SUM(oai.subtotal) as total
+           FROM order_additions oa
+           JOIN orders o ON oa.order_id = o.id
+           JOIN order_addition_items oai ON oai.order_addition_id = oa.id
+           WHERE oa.id=?
+           GROUP BY oa.id`,
+          [req.params.id]
+        );
+        const add = addRows[0];
+        const approvalUrl = `${process.env.BASE_URL || 'http://localhost:5173'}/tambahan/${token}`;
+        const waMsg = encodeURIComponent(
+          `Halo ${add.customer_name}, ada penambahan material/jasa untuk order Anda senilai Rp${Number(add.total).toLocaleString('id-ID')}.\n\nSilakan cek dan setujui di:\n${approvalUrl}`
+        );
+        const waLink = `https://wa.me/62${String(add.phone).replace(/^0/, '')}?text=${waMsg}`;
+        res.json({ success: true, status: 'pending_customer', token, waLink });
+      }
+    } catch (e) {
+      res.status(500).json({ success: false, message: 'Gagal memproses review' });
+    }
+  });
+
   // =========================
   // START
   // =========================
