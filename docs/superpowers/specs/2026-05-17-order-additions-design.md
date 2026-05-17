@@ -246,6 +246,101 @@ Semua notifikasi WA dikirim via link `wa.me` yang sudah dipakai di sistem — ti
 
 ---
 
+## Standar Invoice
+
+### Format Kertas & Cetak
+- **Ukuran:** A4 portrait (210 × 297 mm)
+- **Margin:** 20mm kiri/kanan, 15mm atas/bawah
+- **Font:** Sans-serif, ukuran body 10–11pt
+- **Warna:** Header biru langit (sesuai brand sky-blue), body putih bersih
+- **Output:** HTML yang bisa di-print langsung (browser print dialog) atau Save as PDF
+- **Akses:** Link unik per invoice — bisa dibuka customer tanpa login
+
+### Nomor Invoice
+Format: `INV-YYYY-MM-NNNN`
+Contoh: `INV-2026-05-0001`
+Sequence per bulan, di-pad 4 digit.
+
+### Struktur Invoice (A4)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  HEADER                                                      │
+│  ┌──────────────────────┐   ┌─────────────────────────────┐ │
+│  │ ❄ HDB AIRCONDS       │   │ INVOICE                     │ │
+│  │ Jasa & Penjualan AC  │   │ No: INV-2026-05-0001        │ │
+│  │ Mojokerto            │   │ Tgl: 17 Mei 2026            │ │
+│  │                      │   │ No. Order: ORD-XXXXXX       │ │
+│  │ Jl. Gajah Mada No.19 │   │ Tgl Order: 10 Mei 2026     │ │
+│  │ Rw. III, Seduri      │   └─────────────────────────────┘ │
+│  │ Kec. Mojosari        │                                    │
+│  │ Kab. Mojokerto 61382 │                                    │
+│  │ 📱 0815-1572-9739    │                                    │
+│  │ ✉ hasildayabersama   │                                    │
+│  │   @gmail.com         │                                    │
+│  └──────────────────────┘                                    │
+│                                                              │
+│  ── INFO PARA PIHAK ──────────────────────────────────────  │
+│  ┌────────────────────────┐  ┌────────────────────────────┐ │
+│  │ TAGIHAN KEPADA:        │  │ DIKERJAKAN OLEH:           │ │
+│  │ Nama  : Budi Santoso   │  │ Teknisi : Ahmad Fauzi      │ │
+│  │ Telp  : 0812-3456-7890 │  │ Tgl     : 17 Mei 2026     │ │
+│  │ Alamat: Jl. Mawar No.5 │  │                            │ │
+│  │         Mojosari       │  │                            │ │
+│  └────────────────────────┘  └────────────────────────────┘ │
+│                                                              │
+│  ── RINCIAN PESANAN AWAL ─────────────────────────────────  │
+│  No  Deskripsi          Qty  Satuan    Harga Sat     Total  │
+│   1  Pasang AC Daikin     1  unit        350.000    350.000 │
+│   2  AC Daikin FTKQ25     1  unit      4.850.000  4.850.000 │
+│                                                              │
+│  ── PENAMBAHAN MATERIAL & JASA ───────────────────────────  │
+│  No  Deskripsi          Qty  Satuan    Harga Sat     Total  │
+│   3  Pipa AC 1/4"         4  meter        50.000    200.000 │
+│   4  Bracket Dinding      2  pcs          40.000     80.000 │
+│   5  Kabel Listrik 2.5mm  3  meter        15.000     45.000 │
+│                                                              │
+│  ── RINGKASAN PEMBAYARAN ─────────────────────────────────  │
+│                    Subtotal Pesanan Awal :      5.200.000   │
+│                    Subtotal Penambahan   :        325.000   │
+│                    ──────────────────────────────────────   │
+│                    TOTAL                :      5.525.000   │
+│                                                              │
+│  Metode Bayar : Transfer / Tunai                            │
+│  Status       : ✅ LUNAS — 17 Mei 2026                      │
+│                                                              │
+│  ── CATATAN ──────────────────────────────────────────────  │
+│  • Garansi layanan berlaku 30 hari sejak tanggal pengerjaan │
+│  • Hubungi kami jika ada keluhan: 0815-1572-9739            │
+│                                                              │
+│  ── TANDA TANGAN ─────────────────────────────────────────  │
+│                                                              │
+│       Mojosari, 17 Mei 2026                                 │
+│                                                              │
+│  ┌───────────────────────┐  ┌──────────────────────────┐   │
+│  │                       │  │   Hormat Kami,           │   │
+│  │  Penerima / Pelanggan │  │   HDB Airconds           │   │
+│  │                       │  │                          │   │
+│  │                       │  │                          │   │
+│  │                       │  │                          │   │
+│  │  (...................) │  │  (....................)  │   │
+│  │  Nama Jelas           │  │  Admin / Teknisi         │   │
+│  └───────────────────────┘  └──────────────────────────┘   │
+│                                                              │
+│  ── FOOTER ────────────────────────────────────────────── │
+│  Dokumen ini dibuat otomatis oleh sistem HDB Airconds       │
+│  Dicetak: 17 Mei 2026, 14:30 WIB                           │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Kolom Tanda Tangan
+- **Kiri:** Penerima / Pelanggan — nama jelas di bawah garis
+- **Kanan:** Hormat Kami, HDB Airconds — nama teknisi atau admin yang bertanggung jawab
+- Posisi tanda tangan: bagian bawah invoice, sebelum footer
+- Untuk versi digital (online): kolom tanda tangan tetap ditampilkan untuk keperluan print
+
+---
+
 ## Keputusan Desain
 
 | Keputusan | Alasan |
