@@ -2003,7 +2003,7 @@ async function startServer() {
 
       let invoiceToken = order.invoice_token;
       if (!invoiceToken) {
-        invoiceToken = require('crypto').randomBytes(32).toString('hex');
+        invoiceToken = crypto.randomBytes(32).toString('hex');
       }
 
       let invoiceNumber = order.invoice_number;
