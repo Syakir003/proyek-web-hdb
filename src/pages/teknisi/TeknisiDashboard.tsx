@@ -104,6 +104,7 @@ export default function TeknisiDashboard({
   const [uploadingPhoto, setUploadingPhoto] = useState<Record<string, boolean>>({});
   const [showAddForm, setShowAddForm] = useState<string | null>(null); // orderId
   const [myAdditions, setMyAdditions] = useState<any[]>([]);
+  const [revisingId, setRevisingId] = useState<string | null>(null); // addition id being revised
 
   const isFetchingRef = useRef(false);
   const pendingUpdateRef = useRef<string | null>(null);
@@ -235,6 +236,32 @@ export default function TeknisiDashboard({
     },
     [token, fetchPhotos],
   );
+
+  const ADDITION_STATUS: Record<string, { label: string; cls: string }> = {
+    pending_admin:       { label: 'Menunggu Admin',    cls: 'bg-amber-100 text-amber-700' },
+    admin_approved:      { label: 'Admin Setuju',       cls: 'bg-blue-100 text-blue-700' },
+    admin_rejected:      { label: 'Ditolak Admin',      cls: 'bg-red-100 text-red-700' },
+    pending_customer:    { label: 'Menunggu Customer',  cls: 'bg-amber-100 text-amber-700' },
+    customer_approved:   { label: 'Customer Setuju',    cls: 'bg-blue-100 text-blue-700' },
+    customer_rejected:   { label: 'Ditolak Customer',   cls: 'bg-red-100 text-red-700' },
+    paid:                { label: 'Lunas',              cls: 'bg-emerald-100 text-emerald-700' },
+    cancelled:           { label: 'Dibatalkan',         cls: 'bg-slate-100 text-slate-500' },
+  };
+
+  const handleAdditionAction = async (additionId: number, action: 'escalate' | 'cancel') => {
+    const confirmMsg = action === 'cancel' ? 'Batalkan pengajuan ini?' : 'Eskalasi ke admin?';
+    if (!confirm(confirmMsg)) return;
+    const r = await fetch(`/api/order-additions/${additionId}/${action}`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const d = await r.json();
+    if (d.success) fetchMyAdditions();
+    else alert(d.message || 'Gagal');
+  };
+
+  const fmt = (n: number) =>
+    new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
 
   const getStatusBadge = (status: Schedule['status']) => {
     switch (status) {
@@ -435,6 +462,75 @@ export default function TeknisiDashboard({
                 </div>
               );
             })}
+          </div>
+        )}
+        {/* Riwayat Penambahan */}
+        {myAdditions.length > 0 && (
+          <div className="mt-10">
+            <h2 className="text-xl font-bold text-slate-900 mb-4">Riwayat Penambahan</h2>
+            <div className="space-y-3">
+              {myAdditions.map((add: any) => {
+                const st = ADDITION_STATUS[add.status] ?? { label: add.status, cls: 'bg-slate-100 text-slate-500' };
+                const isCustomerRejected = add.status === 'customer_rejected';
+                return (
+                  <div key={add.id} className="bg-white rounded-2xl border border-slate-200 p-4">
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800">
+                          Order #{add.order_id}
+                          {add.customer_name && <span className="font-normal text-slate-500"> — {add.customer_name}</span>}
+                        </p>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {new Date(add.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                        </p>
+                        {add.admin_notes && (
+                          <p className="text-xs text-slate-600 mt-1 italic">Catatan admin: {add.admin_notes}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-sm font-bold text-sky-600">{fmt(Number(add.total))}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${st.cls}`}>{st.label}</span>
+                      </div>
+                    </div>
+
+                    {isCustomerRejected && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          onClick={() => setRevisingId(prev => prev === String(add.id) ? null : String(add.id))}
+                          className="text-xs font-medium px-3 py-1.5 rounded-lg border border-sky-200 text-sky-600 hover:bg-sky-50"
+                        >
+                          {revisingId === String(add.id) ? 'Tutup Revisi' : 'Revisi'}
+                        </button>
+                        <button
+                          onClick={() => handleAdditionAction(add.id, 'escalate')}
+                          className="text-xs font-medium px-3 py-1.5 rounded-lg border border-amber-200 text-amber-600 hover:bg-amber-50"
+                        >
+                          Eskalasi ke Admin
+                        </button>
+                        <button
+                          onClick={() => handleAdditionAction(add.id, 'cancel')}
+                          className="text-xs font-medium px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50"
+                        >
+                          Batalkan
+                        </button>
+                      </div>
+                    )}
+
+                    {revisingId === String(add.id) && (
+                      <div className="mt-3">
+                        <OrderAdditionForm
+                          orderId={add.order_id}
+                          token={token}
+                          revisionAdditionId={String(add.id)}
+                          onSuccess={() => { setRevisingId(null); fetchMyAdditions(); }}
+                          onCancel={() => setRevisingId(null)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </main>

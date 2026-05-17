@@ -1814,15 +1814,20 @@ async function startServer() {
       // Hapus items lama, insert baru
       await conn.query('DELETE FROM order_addition_items WHERE order_addition_id=?', [req.params.id]);
       for (const item of items) {
-        const table = item.item_type === 'material' ? 'material_catalog' : 'services';
-        const col = item.item_type === 'material' ? 'price' : 'price';
-        const [iRows]: any = await conn.query(`SELECT name, unit, ${col} as price FROM ${table} WHERE id=?`, [item.ref_id]);
-        if (!iRows.length) { await conn.rollback(); return res.status(400).json({ success: false, message: `Item ${item.ref_id} tidak ditemukan` }); }
-        const i = iRows[0];
+        let iName: string, iUnit: string, iPrice: number;
+        if (item.item_type === 'material') {
+          const [iRows]: any = await conn.query('SELECT name, unit, price FROM material_catalog WHERE id=? AND is_active=1', [item.ref_id]);
+          if (!iRows.length) { await conn.rollback(); return res.status(400).json({ success: false, message: `Material ${item.ref_id} tidak ditemukan` }); }
+          iName = iRows[0].name; iUnit = iRows[0].unit; iPrice = Number(iRows[0].price);
+        } else {
+          const [iRows]: any = await conn.query('SELECT name, price FROM services WHERE id=?', [item.ref_id]);
+          if (!iRows.length) { await conn.rollback(); return res.status(400).json({ success: false, message: `Jasa ${item.ref_id} tidak ditemukan` }); }
+          iName = iRows[0].name; iUnit = 'unit'; iPrice = Number(iRows[0].price);
+        }
         await conn.query(
           `INSERT INTO order_addition_items (order_addition_id, item_type, ref_id, name, unit, quantity, unit_price, subtotal)
            VALUES (?,?,?,?,?,?,?,?)`,
-          [req.params.id, item.item_type, item.ref_id, i.name, i.unit || 'unit', item.quantity, Number(i.price), Number(i.price)*item.quantity]
+          [req.params.id, item.item_type, item.ref_id, iName, iUnit, item.quantity, iPrice, iPrice * item.quantity]
         );
       }
       await conn.query(
