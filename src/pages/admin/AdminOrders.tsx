@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Check, X, Clock, Search, Trash2, UserCog, MessageSquare, Camera, ChevronDown, ChevronUp, FileText, ExternalLink, Send } from "lucide-react";
+import { Check, X, Clock, Search, Trash2, UserCog, MessageSquare, Camera, ChevronDown, ChevronUp, FileText, Send } from "lucide-react";
 
 interface OrderPhoto {
   id: number;
@@ -15,7 +15,6 @@ export default function AdminOrders({ token }: { token: string }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedPhotos, setExpandedPhotos] = useState<Record<string, boolean>>({});
   const [orderPhotos, setOrderPhotos] = useState<Record<string, OrderPhoto[]>>({});
-  const [waLink, setWaLink] = useState<string | null>(null);
   const [sendingInvoice, setSendingInvoice] = useState<string | null>(null);
 
   useEffect(() => {
@@ -126,8 +125,8 @@ export default function AdminOrders({ token }: { token: string }) {
       });
       const d = await r.json();
       if (d.success) {
-        setWaLink(d.waLink);
         fetchOrders();
+        window.open(`/order-invoice/${d.invoice_token}`, '_blank');
       } else {
         alert(d.message || 'Gagal membuat invoice');
       }
@@ -264,20 +263,6 @@ export default function AdminOrders({ token }: { token: string }) {
         </div>
       </div>
 
-      {/* WA Invoice Banner */}
-      {waLink && (
-        <div className="mx-6 mt-4 bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center justify-between gap-3">
-          <span className="text-emerald-700 text-sm font-medium">Invoice berhasil dibuat — kirim ke customer via WhatsApp</span>
-          <div className="flex items-center gap-2 shrink-0">
-            <a href={waLink} target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-1.5 bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-emerald-600">
-              <ExternalLink className="w-3.5 h-3.5" /> Buka WA
-            </a>
-            <button onClick={() => setWaLink(null)} className="text-emerald-400 hover:text-emerald-600 text-lg leading-none px-1">×</button>
-          </div>
-        </div>
-      )}
-
       {/* Desktop Table */}
       <div className="hidden lg:block overflow-x-auto">
         <table className="w-full text-left border-collapse">
@@ -395,7 +380,7 @@ export default function AdminOrders({ token }: { token: string }) {
                         className="flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-50 text-emerald-600 text-xs font-medium hover:bg-emerald-100 disabled:opacity-50"
                       >
                         <Send className="w-3.5 h-3.5" />
-                        {sendingInvoice === order.id ? '...' : 'Kirim Invoice'}
+                        {sendingInvoice === order.id ? '...' : 'Cetak Invoice'}
                       </button>
                     ) : null}
                   </td>
@@ -603,7 +588,7 @@ export default function AdminOrders({ token }: { token: string }) {
                     <button onClick={() => sendInvoice(order.id)} disabled={sendingInvoice === order.id}
                       className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 hover:text-emerald-700 disabled:opacity-50">
                       <Send className="w-3.5 h-3.5" />
-                      {sendingInvoice === order.id ? 'Membuat invoice...' : 'Kirim Invoice'}
+                      {sendingInvoice === order.id ? 'Membuat invoice...' : 'Cetak Invoice'}
                     </button>
                   )}
                 </div>
