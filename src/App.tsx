@@ -23,7 +23,10 @@ import Karir from "./pages/Karir";
 import Blog from "./pages/Blog";
 import Privasi from "./pages/Privasi";
 import Syarat from "./pages/Syarat";
+import CustomerAdditionApproval from "./pages/CustomerAdditionApproval";
+import InvoiceView from "./pages/InvoiceView";
 import { Product, CartItem, Service } from "./data";
+import { useSEO } from "./hooks/useSEO";
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState(() => {
@@ -36,6 +39,12 @@ export default function App() {
     return "beranda";
   });
   const [previousPage, setPreviousPage] = useState("beranda");
+  const [additionToken, setAdditionToken] = useState<string | null>(null);
+  const [invoiceToken, setInvoiceToken] = useState<string | null>(null);
+
+  // SEO: update title & meta tags setiap ganti halaman
+  useSEO(currentPage);
+
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedProductForCheckout, setSelectedProductForCheckout] =
     useState<Product | null>(null);
@@ -55,14 +64,62 @@ export default function App() {
     localStorage.getItem("userRole") as "admin" | "user" | "teknisi" | null,
   );
 
+  // ── SEO: URL routing via History API ──────────────────────────────────────
+  const PATH_TO_PAGE: Record<string, string> = {
+    "/": "beranda",
+    "/katalog": "katalog",
+    "/layanan": "layanan",
+    "/tentang": "tentang",
+    "/kontak": "kontak",
+    "/blog": "blog",
+    "/karir": "karir",
+    "/privasi": "privasi",
+    "/syarat": "syarat",
+    "/admin": "admin",
+    "/teknisi": "teknisi",
+  };
+  const PAGE_TO_PATH: Record<string, string> = Object.fromEntries(
+    Object.entries(PATH_TO_PAGE).map(([k, v]) => [v, k])
+  );
+
+  // Baca URL saat pertama kali halaman dibuka
   useEffect(() => {
-    // Check if user is trying to access admin page
-    if (window.location.pathname === "/admin") {
-      setCurrentPage("admin");
-    } else if (window.location.pathname === "/teknisi") {
-      setCurrentPage("teknisi");
+    const path = window.location.pathname;
+    if (path.startsWith('/tambahan/')) {
+      const t = path.replace('/tambahan/', '');
+      setAdditionToken(t);
+      setCurrentPage('tambahan');
+      return;
     }
+    if (path.startsWith('/invoice/')) {
+      const t = path.replace('/invoice/', '');
+      setInvoiceToken(t);
+      setCurrentPage('invoice');
+      return;
+    }
+    const page = PATH_TO_PAGE[path];
+    if (page && page !== "beranda") setCurrentPage(page);
   }, []);
+
+  // Update URL setiap kali halaman berubah
+  useEffect(() => {
+    if (currentPage === 'tambahan' || currentPage === 'invoice') return;
+    const path = PAGE_TO_PATH[currentPage] ?? "/";
+    if (window.location.pathname !== path) {
+      window.history.pushState({ page: currentPage }, "", path);
+    }
+  }, [currentPage]);
+
+  // Tangani tombol Back/Forward browser
+  useEffect(() => {
+    const onPopState = (e: PopStateEvent) => {
+      const page = e.state?.page ?? PATH_TO_PAGE[window.location.pathname] ?? "beranda";
+      setCurrentPage(page);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+  // ────────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (
@@ -162,16 +219,16 @@ export default function App() {
     setCurrentPage("cart");
   };
 
-  const handleRemoveFromCart = (id: string) => {
-    setCart((prev) => prev.filter((item) => item.id !== id));
+  const handleRemoveFromCart = (id: string, itemType: "product" | "service") => {
+    setCart((prev) => prev.filter((item) => !(item.id === id && item.itemType === itemType)));
   };
 
-  const handleUpdateQuantity = (id: string, quantity: number) => {
+  const handleUpdateQuantity = (id: string, itemType: "product" | "service", quantity: number) => {
     if (quantity <= 0) {
-      handleRemoveFromCart(id);
+      handleRemoveFromCart(id, itemType);
     } else {
       setCart((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, quantity } : item)),
+        prev.map((item) => (item.id === id && item.itemType === itemType ? { ...item, quantity } : item)),
       );
     }
   };
@@ -268,6 +325,12 @@ export default function App() {
           return null;
         }
         return <UserOrders token={authToken} />;
+      case "tambahan":
+        if (!additionToken) return <Home setCurrentPage={setCurrentPage} />;
+        return <CustomerAdditionApproval token={additionToken} />;
+      case "invoice":
+        if (!invoiceToken) return <Home setCurrentPage={setCurrentPage} />;
+        return <InvoiceView token={invoiceToken} />;
       case "checkout":
         if (!authToken) {
           openLogin();
