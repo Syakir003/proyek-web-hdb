@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Calendar, MapPin, Phone, User, CheckCircle, Clock,
-  RefreshCw, Wrench, MessageSquare, Camera, ImagePlus,
+  RefreshCw, Wrench, MessageSquare, Camera, ImagePlus, Plus,
 } from 'lucide-react';
+import OrderAdditionForm from '../../components/OrderAdditionForm';
 
 interface Schedule {
   id: string;
@@ -101,9 +102,19 @@ export default function TeknisiDashboard({
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [orderPhotos, setOrderPhotos] = useState<Record<string, OrderPhoto[]>>({});
   const [uploadingPhoto, setUploadingPhoto] = useState<Record<string, boolean>>({});
+  const [showAddForm, setShowAddForm] = useState<string | null>(null); // orderId
+  const [myAdditions, setMyAdditions] = useState<any[]>([]);
 
   const isFetchingRef = useRef(false);
   const pendingUpdateRef = useRef<string | null>(null);
+
+  const fetchMyAdditions = useCallback(async () => {
+    try {
+      const r = await fetch('/api/order-additions/my', { headers: { Authorization: `Bearer ${token}` } });
+      const d = await r.json();
+      if (d.success) setMyAdditions(d.data);
+    } catch {}
+  }, [token]);
 
   const fetchPhotos = useCallback(async (orderId: string) => {
     try {
@@ -147,6 +158,7 @@ export default function TeknisiDashboard({
 
   useEffect(() => {
     fetchSchedules();
+    fetchMyAdditions();
     const handleFocus = () => fetchSchedules(true);
     window.addEventListener('focus', handleFocus);
     const intervalId = setInterval(() => {
@@ -371,32 +383,53 @@ export default function TeknisiDashboard({
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="bg-slate-50 p-4 border-t border-slate-100 flex gap-3">
-                    {schedule.status === 'pending' && (
-                      <button
-                        onClick={() => updateStatus(schedule.id, 'processing')}
-                        disabled={updatingId === schedule.id}
-                        className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed"
-                      >
-                        {updatingId === schedule.id ? (
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <><Clock className="w-4 h-4 mr-2" /> Mulai Proses</>
-                        )}
-                      </button>
-                    )}
+                  <div className="bg-slate-50 p-4 border-t border-slate-100 flex gap-3 flex-col">
+                    <div className="flex gap-3">
+                      {schedule.status === 'pending' && (
+                        <button
+                          onClick={() => updateStatus(schedule.id, 'processing')}
+                          disabled={updatingId === schedule.id}
+                          className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          {updatingId === schedule.id ? (
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <><Clock className="w-4 h-4 mr-2" /> Mulai Proses</>
+                          )}
+                        </button>
+                      )}
+                      {schedule.status === 'processing' && (
+                        <button
+                          onClick={() => updateStatus(schedule.id, 'completed')}
+                          disabled={updatingId === schedule.id}
+                          className="flex-1 bg-emerald-600 text-white py-2 px-4 rounded-lg text-sm font-bold hover:bg-emerald-700 transition-colors flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          {updatingId === schedule.id ? (
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <><CheckCircle className="w-4 h-4 mr-2" /> Selesai</>
+                          )}
+                        </button>
+                      )}
+                    </div>
                     {schedule.status === 'processing' && (
                       <button
-                        onClick={() => updateStatus(schedule.id, 'completed')}
-                        disabled={updatingId === schedule.id}
-                        className="flex-1 bg-emerald-600 text-white py-2 px-4 rounded-lg text-sm font-bold hover:bg-emerald-700 transition-colors flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed"
+                        onClick={() => setShowAddForm(prev => prev === schedule.id ? null : schedule.id)}
+                        className="flex items-center gap-1.5 text-sm font-medium text-sky-600 border border-sky-200 px-3 py-1.5 rounded-xl hover:bg-sky-50 transition-colors"
                       >
-                        {updatingId === schedule.id ? (
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <><CheckCircle className="w-4 h-4 mr-2" /> Selesai</>
-                        )}
+                        <Plus className="w-4 h-4" />
+                        {showAddForm === schedule.id ? 'Tutup' : 'Tambah Material/Jasa'}
                       </button>
+                    )}
+                    {showAddForm === schedule.id && (
+                      <div className="mt-3">
+                        <OrderAdditionForm
+                          orderId={schedule.id}
+                          token={token}
+                          onSuccess={() => { setShowAddForm(null); fetchMyAdditions(); }}
+                          onCancel={() => setShowAddForm(null)}
+                        />
+                      </div>
                     )}
                   </div>
                 </div>
