@@ -11,8 +11,52 @@ import midtransClient from "midtrans-client";
 import crypto from "crypto";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import sharp from "sharp";
 
 dotenv.config();
+
+// =========================
+// IMAGE PIPELINE — auto-WebP + resize + compress
+// =========================
+/**
+ * Convert any uploaded image buffer to optimized WebP.
+ * - Resize: max 1920px width (preserve aspect)
+ * - Quality: 82 (sweet spot)
+ * - Strip metadata (EXIF, GPS, etc) — privacy + smaller size
+ * - Output: image/webp buffer
+ */
+async function optimizeImage(buffer: Buffer | undefined | null): Promise<Buffer | null> {
+  if (!buffer) return null;
+  try {
+    return await sharp(buffer, { failOn: "none" })
+      .rotate() // auto-rotate sesuai EXIF
+      .resize({ width: 1920, height: 1920, fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 82, effort: 4 })
+      .toBuffer();
+  } catch (err) {
+    console.error("[optimizeImage] gagal convert:", err);
+    return buffer; // fallback: simpan raw bila sharp gagal
+  }
+}
+
+/**
+ * Generate slug-friendly alt text dari nama produk.
+ * Cth: "Daikin 1PK Inverter FTKQ25" → "AC Daikin 1PK Inverter FTKQ25 - jual AC Mojokerto HDB Airconds"
+ */
+function generateProductAlt(name: string, brand?: string, type?: string, capacity?: string): string {
+  const parts = [name, brand, type, capacity].filter(Boolean).join(" ");
+  return `${parts} - jual & jasa pasang AC Mojokerto HDB Airconds`;
+}
+
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^\w\s-]/g, "")
+    .trim()
+    .replace(/[\s_]+/g, "-")
+    .replace(/-+/g, "-");
+}
 
 // =========================
 // FAIL FAST — env wajib ada
@@ -55,6 +99,36 @@ const pool = mysql.createPool({
 async function testDB() {
   await pool.query("SELECT 1");
   console.log("✅ Database connected");
+
+  // Migration: tambah image_alt + image_mime ke products (jika belum ada)
+  const [productCols]: any = await pool.query(
+    `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products'`,
+  );
+  const productColSet = new Set((productCols as any[]).map(r => r.COLUMN_NAME));
+  if (!productColSet.has("image_alt")) {
+    await pool.query("ALTER TABLE products ADD COLUMN image_alt VARCHAR(255) DEFAULT NULL");
+    console.log("  → migrated: products.image_alt added");
+  }
+  if (!productColSet.has("image_mime")) {
+    await pool.query("ALTER TABLE products ADD COLUMN image_mime VARCHAR(50) DEFAULT 'image/webp'");
+    console.log("  → migrated: products.image_mime added");
+  }
+  if (!productColSet.has("slug")) {
+    await pool.query("ALTER TABLE products ADD COLUMN slug VARCHAR(200) DEFAULT NULL, ADD INDEX idx_slug (slug)");
+    console.log("  → migrated: products.slug added");
+  }
+
+  // Migration: tambah image_mime ke team
+  const [teamCols]: any = await pool.query(
+    `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'team'`,
+  );
+  const teamColSet = new Set((teamCols as any[]).map(r => r.COLUMN_NAME));
+  if (teamColSet.size > 0 && !teamColSet.has("image_mime")) {
+    await pool.query("ALTER TABLE team ADD COLUMN image_mime VARCHAR(50) DEFAULT 'image/webp'");
+    console.log("  → migrated: team.image_mime added");
+  }
 
   const [cols]: any = await pool.query(
     `SELECT COUNT(*) as cnt FROM information_schema.COLUMNS
@@ -100,6 +174,60 @@ async function testDB() {
       is_active TINYINT(1) NOT NULL DEFAULT 1,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `);
+
+  // ── ORDER ADDITIONS ─────────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS material_catalog (
+      id         INT AUTO_INCREMENT PRIMARY KEY,
+      name       VARCHAR(200) NOT NULL,
+      unit       VARCHAR(50) NOT NULL DEFAULT 'pcs',
+      price      DECIMAL(12,2) NOT NULL,
+      category   VARCHAR(100),
+      is_active  TINYINT(1) NOT NULL DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS order_additions (
+      id               INT AUTO_INCREMENT PRIMARY KEY,
+      order_id         VARCHAR(50) NOT NULL,
+      initiated_by     ENUM('teknisi','customer') NOT NULL,
+      initiated_by_id  INT NOT NULL,
+      status           ENUM(
+                         'pending_admin','admin_approved','admin_rejected',
+                         'pending_customer','customer_approved','customer_rejected',
+                         'paid','cancelled'
+                       ) NOT NULL DEFAULT 'pending_admin',
+      admin_notes      TEXT,
+      payment_method   ENUM('cash','online') DEFAULT NULL,
+      payment_status   ENUM('pending','paid') DEFAULT NULL,
+      customer_token   VARCHAR(64) UNIQUE,
+      invoice_number   VARCHAR(20) DEFAULT NULL,
+      invoice_sent_at  TIMESTAMP DEFAULT NULL,
+      created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+      INDEX idx_oa_order_id (order_id),
+      INDEX idx_oa_token (customer_token)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS order_addition_items (
+      id                  INT AUTO_INCREMENT PRIMARY KEY,
+      order_addition_id   INT NOT NULL,
+      item_type           ENUM('material','service') NOT NULL,
+      ref_id              VARCHAR(50) NOT NULL,
+      name                VARCHAR(200) NOT NULL,
+      unit                VARCHAR(50) NOT NULL DEFAULT 'pcs',
+      quantity            DECIMAL(10,2) NOT NULL DEFAULT 1,
+      unit_price          DECIMAL(12,2) NOT NULL,
+      subtotal            DECIMAL(12,2) NOT NULL,
+      FOREIGN KEY (order_addition_id) REFERENCES order_additions(id) ON DELETE CASCADE
     )
   `);
 }
@@ -295,8 +423,8 @@ async function startServer() {
   app.get("/api/products", async (_req, res) => {
     try {
       const [rows] = await pool.query(
-        `SELECT id, name, brand, type, capacity, price, stock, description, features, created_at, updated_at,
-                IF(image IS NOT NULL, CONCAT("data:image/jpeg;base64,", TO_BASE64(image)), NULL) as image
+        `SELECT id, name, slug, brand, type, capacity, price, stock, description, features, image_alt, created_at, updated_at,
+                IF(image IS NOT NULL, CONCAT('data:', COALESCE(image_mime, 'image/webp'), ';base64,', TO_BASE64(image)), NULL) as image
          FROM products ORDER BY created_at DESC`,
       );
       res.json({
@@ -305,9 +433,11 @@ async function startServer() {
           ...row,
           price: Number(row.price) || 0,
           stock: Number(row.stock) || 0,
+          image_alt: row.image_alt || generateProductAlt(row.name, row.brand, row.type, row.capacity),
         })),
       });
-    } catch {
+    } catch (err) {
+      console.error("/api/products error:", err);
       res.status(500).json({ success: false, error: "Gagal mengambil produk" });
     }
   });
@@ -319,11 +449,12 @@ async function startServer() {
     try {
       const [rows] = await pool.query(
         `SELECT id, name, position, role_label, bio, phone, sort_order,
-                IF(image IS NOT NULL, CONCAT('data:image/jpeg;base64,', TO_BASE64(image)), NULL) as image
+                IF(image IS NOT NULL, CONCAT('data:', COALESCE(image_mime, 'image/webp'), ';base64,', TO_BASE64(image)), NULL) as image
          FROM team WHERE is_active = 1 ORDER BY sort_order ASC, id ASC`,
       );
       res.json({ success: true, data: rows });
-    } catch {
+    } catch (err) {
+      console.error("/api/team error:", err);
       res.status(500).json({ success: false, error: "Gagal mengambil data tim" });
     }
   });
@@ -334,48 +465,62 @@ async function startServer() {
   app.get("/api/admin/products", authenticateToken, requireAdmin, async (_req, res) => {
     try {
       const [rows] = await pool.query(
-        `SELECT id, name, brand, type, capacity, price, stock, description, features, created_at, updated_at,
-                IF(image IS NOT NULL, CONCAT("data:image/jpeg;base64,", TO_BASE64(image)), NULL) as image
+        `SELECT id, name, slug, brand, type, capacity, price, stock, description, features, image_alt, created_at, updated_at,
+                IF(image IS NOT NULL, CONCAT('data:', COALESCE(image_mime, 'image/webp'), ';base64,', TO_BASE64(image)), NULL) as image
          FROM products ORDER BY created_at DESC`,
       );
       res.json({ success: true, data: rows });
-    } catch {
+    } catch (err) {
+      console.error("/api/admin/products GET error:", err);
       res.status(500).json({ success: false, error: "Gagal mengambil produk" });
     }
   });
 
   app.post("/api/admin/products", authenticateToken, requireAdmin, upload.single("image"), async (req, res) => {
-    const { name, brand, type, capacity, price, description } = req.body;
-    const image = req.file ? req.file.buffer : null;
+    const { name, brand, type, capacity, price, description, image_alt } = req.body;
     try {
+      // Auto-optimize gambar ke WebP
+      const optimized = await optimizeImage(req.file?.buffer);
+      const altText = image_alt?.trim() || generateProductAlt(name, brand, type, capacity);
+      const slug = slugify(`${name} ${brand} ${capacity}`.trim()) || slugify(name);
+
       await pool.query(
-        "INSERT INTO products (id, name, brand, type, capacity, price, description, image) VALUES (UUID(),?,?,?,?,?,?,?)",
-        [name, brand, type, capacity, price, description, image],
+        `INSERT INTO products (id, name, slug, brand, type, capacity, price, description, image, image_mime, image_alt)
+         VALUES (UUID(),?,?,?,?,?,?,?,?,?,?)`,
+        [name, slug, brand, type, capacity, price, description, optimized, optimized ? "image/webp" : null, altText],
       );
-      res.json({ success: true });
-    } catch {
+      res.json({ success: true, slug, image_alt: altText });
+    } catch (err) {
+      console.error("POST product error:", err);
       res.status(500).json({ success: false, error: "Gagal menambah produk" });
     }
   });
 
   app.put("/api/admin/products/:id", authenticateToken, requireAdmin, upload.single("image"), async (req, res) => {
     const { id } = req.params;
-    const { name, brand, type, capacity, price, description } = req.body;
-    const image = req.file ? req.file.buffer : null;
+    const { name, brand, type, capacity, price, description, image_alt } = req.body;
     try {
-      if (image) {
+      const altText = image_alt?.trim() || generateProductAlt(name, brand, type, capacity);
+      const slug = slugify(`${name} ${brand} ${capacity}`.trim()) || slugify(name);
+
+      if (req.file?.buffer) {
+        // Update dengan gambar baru: auto-optimize
+        const optimized = await optimizeImage(req.file.buffer);
         await pool.query(
-          "UPDATE products SET name=?, brand=?, type=?, capacity=?, price=?, description=?, image=? WHERE id=?",
-          [name, brand, type, capacity, price, description, image, id],
+          `UPDATE products SET name=?, slug=?, brand=?, type=?, capacity=?, price=?, description=?,
+           image=?, image_mime=?, image_alt=? WHERE id=?`,
+          [name, slug, brand, type, capacity, price, description, optimized, "image/webp", altText, id],
         );
       } else {
+        // Update tanpa gambar baru
         await pool.query(
-          "UPDATE products SET name=?, brand=?, type=?, capacity=?, price=?, description=? WHERE id=?",
-          [name, brand, type, capacity, price, description, id],
+          `UPDATE products SET name=?, slug=?, brand=?, type=?, capacity=?, price=?, description=?, image_alt=? WHERE id=?`,
+          [name, slug, brand, type, capacity, price, description, altText, id],
         );
       }
-      res.json({ success: true });
-    } catch {
+      res.json({ success: true, slug, image_alt: altText });
+    } catch (err) {
+      console.error("PUT product error:", err);
       res.status(500).json({ success: false, error: "Gagal mengupdate produk" });
     }
   });
@@ -504,25 +649,27 @@ async function startServer() {
     try {
       const [rows] = await pool.query(
         `SELECT id, name, position, role_label, bio, phone, sort_order, is_active,
-                IF(image IS NOT NULL, CONCAT('data:image/jpeg;base64,', TO_BASE64(image)), NULL) as image
+                IF(image IS NOT NULL, CONCAT('data:', COALESCE(image_mime, 'image/webp'), ';base64,', TO_BASE64(image)), NULL) as image
          FROM team ORDER BY sort_order ASC, id ASC`,
       );
       res.json({ success: true, data: rows });
-    } catch {
+    } catch (err) {
+      console.error("/api/admin/team GET error:", err);
       res.status(500).json({ success: false, error: "Gagal mengambil data tim" });
     }
   });
 
   app.post("/api/admin/team", authenticateToken, requireAdmin, upload.single("image"), async (req: any, res) => {
     const { name, position, role_label, bio, phone, sort_order } = req.body;
-    const image = req.file ? req.file.buffer : null;
     try {
+      const optimized = await optimizeImage(req.file?.buffer);
       await pool.query(
-        "INSERT INTO team (name, position, role_label, bio, phone, sort_order, image) VALUES (?,?,?,?,?,?,?)",
-        [name, position, role_label, bio || null, phone || null, sort_order || 0, image],
+        "INSERT INTO team (name, position, role_label, bio, phone, sort_order, image, image_mime) VALUES (?,?,?,?,?,?,?,?)",
+        [name, position, role_label, bio || null, phone || null, sort_order || 0, optimized, optimized ? "image/webp" : null],
       );
       res.json({ success: true });
-    } catch {
+    } catch (err) {
+      console.error("POST team error:", err);
       res.status(500).json({ success: false, error: "Gagal menambah anggota tim" });
     }
   });
@@ -530,12 +677,12 @@ async function startServer() {
   app.put("/api/admin/team/:id", authenticateToken, requireAdmin, upload.single("image"), async (req: any, res) => {
     const { id } = req.params;
     const { name, position, role_label, bio, phone, sort_order, is_active } = req.body;
-    const image = req.file ? req.file.buffer : null;
     try {
-      if (image) {
+      if (req.file?.buffer) {
+        const optimized = await optimizeImage(req.file.buffer);
         await pool.query(
-          "UPDATE team SET name=?, position=?, role_label=?, bio=?, phone=?, sort_order=?, is_active=?, image=?, updated_at=NOW() WHERE id=?",
-          [name, position, role_label, bio || null, phone || null, sort_order || 0, is_active ?? 1, image, id],
+          "UPDATE team SET name=?, position=?, role_label=?, bio=?, phone=?, sort_order=?, is_active=?, image=?, image_mime=?, updated_at=NOW() WHERE id=?",
+          [name, position, role_label, bio || null, phone || null, sort_order || 0, is_active ?? 1, optimized, "image/webp", id],
         );
       } else {
         await pool.query(
@@ -544,7 +691,8 @@ async function startServer() {
         );
       }
       res.json({ success: true });
-    } catch {
+    } catch (err) {
+      console.error("PUT team error:", err);
       res.status(500).json({ success: false, error: "Gagal mengupdate anggota tim" });
     }
   });
@@ -1102,6 +1250,162 @@ async function startServer() {
       });
     } catch {
       res.status(500).json({ success: false, error: "Gagal mengambil foto" });
+    }
+  });
+
+  // =========================
+  // SERVE FRONTEND (Production SPA)
+  // =========================
+  if (isProduction) {
+    const distPath = path.join(__dirname, "dist");
+    // Serve static assets (JS, CSS, images, dll)
+    app.use(express.static(distPath));
+    // SPA fallback: semua route non-API dikembalikan ke index.html
+    // agar URL seperti /layanan, /katalog tetap bisa diakses langsung
+    app.get(/^(?!\/api).*/, (_req, res) => {
+      res.sendFile(path.join(distPath, "index.html"));
+    });
+  }
+
+  // =========================
+  // SEO — DYNAMIC SITEMAP & SCHEMA
+  // =========================
+  const SITE_URL = process.env.SITE_URL || "https://www.hdbaircons.com";
+
+  // Dynamic sitemap.xml — auto-include semua produk + halaman statis
+  app.get("/sitemap.xml", async (_req, res) => {
+    try {
+      const today = new Date().toISOString().split("T")[0];
+
+      // Halaman statis utama
+      const staticPages = [
+        { loc: "/",         priority: "1.0", changefreq: "weekly" },
+        { loc: "/layanan",  priority: "0.9", changefreq: "weekly" },
+        { loc: "/katalog",  priority: "0.9", changefreq: "weekly" },
+        { loc: "/kontak",   priority: "0.8", changefreq: "monthly" },
+        { loc: "/tentang",  priority: "0.7", changefreq: "monthly" },
+        { loc: "/blog",     priority: "0.7", changefreq: "weekly" },
+        { loc: "/karir",    priority: "0.5", changefreq: "monthly" },
+        { loc: "/privasi",  priority: "0.3", changefreq: "yearly" },
+        { loc: "/syarat",   priority: "0.3", changefreq: "yearly" },
+      ];
+
+      // Ambil produk + tanggal update dari DB
+      const [products]: any = await pool.query(
+        `SELECT slug, id, COALESCE(updated_at, created_at) as last_mod, image IS NOT NULL as has_image, name, brand, type, capacity, image_alt, image_mime
+         FROM products ORDER BY updated_at DESC LIMIT 5000`,
+      );
+
+      let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+      xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"\n`;
+      xml += `        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
+
+      for (const p of staticPages) {
+        xml += `  <url>\n`;
+        xml += `    <loc>${SITE_URL}${p.loc}</loc>\n`;
+        xml += `    <lastmod>${today}</lastmod>\n`;
+        xml += `    <changefreq>${p.changefreq}</changefreq>\n`;
+        xml += `    <priority>${p.priority}</priority>\n`;
+        xml += `  </url>\n`;
+      }
+
+      // Setiap produk → URL produk + image sitemap entry
+      for (const p of products as any[]) {
+        const productSlug = p.slug || p.id;
+        const lastMod = p.last_mod ? new Date(p.last_mod).toISOString().split("T")[0] : today;
+        xml += `  <url>\n`;
+        xml += `    <loc>${SITE_URL}/katalog/${productSlug}</loc>\n`;
+        xml += `    <lastmod>${lastMod}</lastmod>\n`;
+        xml += `    <changefreq>monthly</changefreq>\n`;
+        xml += `    <priority>0.6</priority>\n`;
+        if (p.has_image) {
+          const altText = p.image_alt || generateProductAlt(p.name, p.brand, p.type, p.capacity);
+          const escapedAlt = altText.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          xml += `    <image:image>\n`;
+          xml += `      <image:loc>${SITE_URL}/api/products/${p.id}/image</image:loc>\n`;
+          xml += `      <image:title>${escapedAlt}</image:title>\n`;
+          xml += `      <image:caption>${escapedAlt}</image:caption>\n`;
+          xml += `    </image:image>\n`;
+        }
+        xml += `  </url>\n`;
+      }
+
+      xml += `</urlset>\n`;
+      res.type("application/xml").send(xml);
+    } catch (err) {
+      console.error("/sitemap.xml error:", err);
+      res.status(500).send("<error>Gagal generate sitemap</error>");
+    }
+  });
+
+  // Image endpoint by product ID — supaya bisa di-link langsung dari sitemap & dishare
+  app.get("/api/products/:id/image", async (req, res) => {
+    try {
+      const [rows]: any = await pool.query(
+        `SELECT image, COALESCE(image_mime, 'image/webp') as mime, image_alt
+         FROM products WHERE id=? LIMIT 1`,
+        [req.params.id],
+      );
+      if (!rows.length || !rows[0].image) {
+        return res.status(404).send("Image not found");
+      }
+      const row = rows[0];
+      res.set({
+        "Content-Type": row.mime,
+        "Cache-Control": "public, max-age=2592000, immutable", // 30 hari
+        "Content-Disposition": `inline; filename="${slugify(row.image_alt || "product")}.webp"`,
+      });
+      res.send(row.image);
+    } catch (err) {
+      console.error("GET product image error:", err);
+      res.status(500).send("Error");
+    }
+  });
+
+  // Dynamic Product schema (ItemList of Products) untuk inject di Catalog page
+  app.get("/api/seo/products-schema", async (_req, res) => {
+    try {
+      const [products]: any = await pool.query(
+        `SELECT id, slug, name, brand, type, capacity, price, description, image_alt, image IS NOT NULL as has_image
+         FROM products ORDER BY created_at DESC`,
+      );
+
+      const itemList = {
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        "name": "Katalog AC HDB Airconds Mojokerto",
+        "numberOfItems": (products as any[]).length,
+        "itemListElement": (products as any[]).map((p, i) => ({
+          "@type": "ListItem",
+          "position": i + 1,
+          "item": {
+            "@type": "Product",
+            "@id": `${SITE_URL}/katalog/${p.slug || p.id}`,
+            "name": p.name,
+            "brand": { "@type": "Brand", "name": p.brand || "Generic" },
+            "category": p.type || "AC",
+            "description": p.description || `${p.name} ${p.brand || ""} ${p.capacity || ""} - tersedia di HDB Airconds Mojokerto`.trim(),
+            ...(p.has_image ? { "image": `${SITE_URL}/api/products/${p.id}/image` } : {}),
+            "offers": {
+              "@type": "Offer",
+              "url": `${SITE_URL}/katalog/${p.slug || p.id}`,
+              "priceCurrency": "IDR",
+              "price": String(Math.round(Number(p.price) || 0)),
+              "availability": "https://schema.org/InStock",
+              "seller": {
+                "@type": "Organization",
+                "name": "HDB Airconds",
+              },
+            },
+          },
+        })),
+      };
+
+      res.set("Cache-Control", "public, max-age=3600"); // cache 1 jam
+      res.json(itemList);
+    } catch (err) {
+      console.error("/api/seo/products-schema error:", err);
+      res.status(500).json({ error: "Gagal generate product schema" });
     }
   });
 
