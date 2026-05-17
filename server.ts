@@ -1775,6 +1775,190 @@ async function startServer() {
     }
   });
 
+  // GET /api/order-additions/my — milik teknisi yg login
+  app.get('/api/order-additions/my', authenticateToken, requireTeknisi, async (req: any, res) => {
+    try {
+      const [rows]: any = await pool.query(
+        `SELECT oa.*, o.customer_name, SUM(oai.subtotal) as total
+         FROM order_additions oa
+         JOIN orders o ON oa.order_id = o.id
+         JOIN order_addition_items oai ON oai.order_addition_id = oa.id
+         WHERE oa.initiated_by_id=? OR o.teknisi_id=?
+         GROUP BY oa.id
+         ORDER BY oa.created_at DESC`,
+        [req.user.id, req.user.id]
+      );
+      res.json({ success: true, data: rows });
+    } catch (e) {
+      res.status(500).json({ success: false, message: 'Gagal mengambil data' });
+    }
+  });
+
+  // PATCH /api/order-additions/:id/revise — revisi item
+  app.patch('/api/order-additions/:id/revise', authenticateToken, requireTeknisi, async (req: any, res) => {
+    const { items } = req.body as { items: Array<{ item_type: 'material'|'service'; ref_id: string; quantity: number }> };
+    if (!items?.length) return res.status(400).json({ success: false, message: 'items kosong' });
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+      const [rows]: any = await conn.query(
+        'SELECT * FROM order_additions WHERE id=?', [req.params.id]
+      );
+      if (!rows.length) { await conn.rollback(); return res.status(404).json({ success: false, message: 'Tidak ditemukan' }); }
+      if (!['customer_rejected','admin_rejected'].includes(rows[0].status)) {
+        await conn.rollback();
+        return res.status(400).json({ success: false, message: 'Hanya bisa revisi setelah ditolak' });
+      }
+      // Hapus items lama, insert baru
+      await conn.query('DELETE FROM order_addition_items WHERE order_addition_id=?', [req.params.id]);
+      for (const item of items) {
+        const table = item.item_type === 'material' ? 'material_catalog' : 'services';
+        const col = item.item_type === 'material' ? 'price' : 'price';
+        const [iRows]: any = await conn.query(`SELECT name, unit, ${col} as price FROM ${table} WHERE id=?`, [item.ref_id]);
+        if (!iRows.length) { await conn.rollback(); return res.status(400).json({ success: false, message: `Item ${item.ref_id} tidak ditemukan` }); }
+        const i = iRows[0];
+        await conn.query(
+          `INSERT INTO order_addition_items (order_addition_id, item_type, ref_id, name, unit, quantity, unit_price, subtotal)
+           VALUES (?,?,?,?,?,?,?,?)`,
+          [req.params.id, item.item_type, item.ref_id, i.name, i.unit || 'unit', item.quantity, Number(i.price), Number(i.price)*item.quantity]
+        );
+      }
+      await conn.query(
+        `UPDATE order_additions SET status='pending_admin', updated_at=NOW() WHERE id=?`, [req.params.id]
+      );
+      await conn.commit();
+      const result = await getAdditionWithItems(Number(req.params.id));
+      res.json({ success: true, data: result });
+    } catch (e) {
+      await conn.rollback();
+      res.status(500).json({ success: false, message: 'Gagal merevisi' });
+    } finally {
+      conn.release();
+    }
+  });
+
+  // PATCH /api/order-additions/:id/escalate — eskalasi ke admin
+  app.patch('/api/order-additions/:id/escalate', authenticateToken, requireTeknisi, async (req: any, res) => {
+    try {
+      await pool.query(
+        `UPDATE order_additions SET status='pending_admin', updated_at=NOW() WHERE id=? AND status='customer_rejected'`,
+        [req.params.id]
+      );
+      res.json({ success: true });
+    } catch (e) {
+      res.status(500).json({ success: false, message: 'Gagal eskalasi' });
+    }
+  });
+
+  // PATCH /api/order-additions/:id/cancel — batalkan
+  app.patch('/api/order-additions/:id/cancel', authenticateToken, requireTeknisi, async (req: any, res) => {
+    try {
+      await pool.query(
+        `UPDATE order_additions SET status='cancelled', updated_at=NOW() WHERE id=? AND status IN ('customer_rejected','admin_rejected')`,
+        [req.params.id]
+      );
+      res.json({ success: true });
+    } catch (e) {
+      res.status(500).json({ success: false, message: 'Gagal membatalkan' });
+    }
+  });
+
+  // GET /api/order-additions/token/:token/invoice-data — data invoice publik
+  app.get('/api/order-additions/token/:token/invoice-data', async (req, res) => {
+    try {
+      const [rows]: any = await pool.query(
+        `SELECT oa.*, o.customer_name, o.phone as customer_phone, o.address as customer_address,
+                o.created_at as order_created_at, u.name as teknisi_name,
+                oi.item_name as first_item
+         FROM order_additions oa
+         JOIN orders o ON oa.order_id = o.id
+         LEFT JOIN users u ON o.teknisi_id = u.id
+         LEFT JOIN order_items oi ON oi.order_id = o.id
+         WHERE oa.customer_token=? AND oa.status='paid'
+         LIMIT 1`,
+        [req.params.token]
+      );
+      if (!rows.length) return res.status(404).json({ success: false, message: 'Invoice tidak ditemukan' });
+      const add = rows[0];
+      // Ambil semua order_items dari order asal
+      const [origItems]: any = await pool.query(
+        'SELECT * FROM order_items WHERE order_id=?', [add.order_id]
+      );
+      // Ambil addition items
+      const [addItems]: any = await pool.query(
+        'SELECT * FROM order_addition_items WHERE order_addition_id=?', [add.id]
+      );
+      const origTotal = origItems.reduce((s: number, i: any) => s + Number(i.price)*Number(i.quantity), 0);
+      const addTotal = addItems.reduce((s: number, i: any) => s + Number(i.subtotal), 0);
+      res.json({
+        success: true,
+        data: {
+          invoice_number: add.invoice_number,
+          invoice_date: add.invoice_sent_at,
+          order_id: add.order_id,
+          order_date: add.order_created_at,
+          customer_name: add.customer_name,
+          customer_phone: add.customer_phone,
+          customer_address: add.customer_address,
+          teknisi_name: add.teknisi_name,
+          payment_method: add.payment_method,
+          orig_items: origItems,
+          add_items: addItems,
+          orig_total: origTotal,
+          add_total: addTotal,
+          grand_total: origTotal + addTotal,
+        }
+      });
+    } catch (e) {
+      res.status(500).json({ success: false, message: 'Gagal mengambil data invoice' });
+    }
+  });
+
+  // POST /api/order-additions/:id/send-invoice — admin generate + kirim invoice
+  app.post('/api/order-additions/:id/send-invoice', authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const [rows]: any = await pool.query(
+        `SELECT oa.*, o.customer_name, o.phone, SUM(oai.subtotal) as total
+         FROM order_additions oa JOIN orders o ON oa.order_id = o.id
+         JOIN order_addition_items oai ON oai.order_addition_id = oa.id
+         WHERE oa.id=? AND oa.status='paid'
+         GROUP BY oa.id`,
+        [req.params.id]
+      );
+      if (!rows.length) return res.status(404).json({ success: false, message: 'Data tidak ditemukan atau belum paid' });
+      const add = rows[0];
+
+      // Generate nomor invoice jika belum ada
+      let invoiceNumber = add.invoice_number;
+      if (!invoiceNumber) {
+        const now = new Date();
+        const ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+        const [cntRows]: any = await pool.query(
+          `SELECT COUNT(*) as cnt FROM order_additions WHERE invoice_number IS NOT NULL AND DATE_FORMAT(invoice_sent_at,'%Y-%m')=?`,
+          [ym]
+        );
+        const seq = Number(cntRows[0].cnt) + 1;
+        invoiceNumber = `INV-${ym}-${String(seq).padStart(4,'0')}`;
+      }
+
+      await pool.query(
+        `UPDATE order_additions SET invoice_number=?, invoice_sent_at=NOW(), updated_at=NOW() WHERE id=?`,
+        [invoiceNumber, req.params.id]
+      );
+
+      const baseUrl = process.env.BASE_URL || 'http://localhost:5173';
+      const invoiceUrl = `${baseUrl}/invoice/${add.customer_token}`;
+      const waMsg = encodeURIComponent(
+        `Halo ${add.customer_name}, invoice untuk tambahan order Anda (${invoiceNumber}) sudah tersedia.\n\nLihat invoice di:\n${invoiceUrl}`
+      );
+      const waLink = `https://wa.me/62${String(add.phone).replace(/^0/,'')}?text=${waMsg}`;
+
+      res.json({ success: true, invoice_number: invoiceNumber, invoiceUrl, waLink });
+    } catch (e) {
+      res.status(500).json({ success: false, message: 'Gagal mengirim invoice' });
+    }
+  });
+
   // =========================
   // START
   // =========================
