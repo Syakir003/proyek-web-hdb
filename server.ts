@@ -1655,6 +1655,72 @@ async function startServer() {
     }
   });
 
+  // GET /api/order-additions/token/:token — lihat via link publik (tanpa auth)
+  app.get('/api/order-additions/token/:token', async (req, res) => {
+    try {
+      const [rows]: any = await pool.query(
+        `SELECT oa.*, o.customer_name, o.phone as customer_phone, o.address as customer_address,
+                o.created_at as order_created_at, u.name as teknisi_name
+         FROM order_additions oa
+         JOIN orders o ON oa.order_id = o.id
+         LEFT JOIN users u ON o.teknisi_id = u.id
+         WHERE oa.customer_token=?`,
+        [req.params.token]
+      );
+      if (!rows.length) return res.status(404).json({ success: false, message: 'Link tidak valid' });
+      const addition = rows[0];
+      const [items]: any = await pool.query(
+        'SELECT * FROM order_addition_items WHERE order_addition_id=?', [addition.id]
+      );
+      const total = items.reduce((s: number, i: any) => s + Number(i.subtotal), 0);
+      res.json({ success: true, data: { ...addition, items, total } });
+    } catch (e) {
+      res.status(500).json({ success: false, message: 'Gagal mengambil data' });
+    }
+  });
+
+  // PATCH /api/order-additions/:id/customer-response — customer approve/reject
+  app.patch('/api/order-additions/:id/customer-response', async (req, res) => {
+    const { token, action, payment_method } = req.body as {
+      token: string; action: 'approve'|'reject'; payment_method?: 'cash'|'online'
+    };
+    if (!['approve','reject'].includes(action)) {
+      return res.status(400).json({ success: false, message: 'action harus approve atau reject' });
+    }
+    try {
+      const [rows]: any = await pool.query(
+        'SELECT * FROM order_additions WHERE id=? AND customer_token=?',
+        [req.params.id, token]
+      );
+      if (!rows.length) return res.status(404).json({ success: false, message: 'Data tidak ditemukan' });
+      if (rows[0].status !== 'pending_customer') {
+        return res.status(400).json({ success: false, message: 'Status tidak valid' });
+      }
+      if (action === 'reject') {
+        await pool.query(
+          `UPDATE order_additions SET status='customer_rejected', updated_at=NOW() WHERE id=?`,
+          [req.params.id]
+        );
+        return res.json({ success: true, status: 'customer_rejected' });
+      }
+      if (!payment_method) {
+        return res.status(400).json({ success: false, message: 'payment_method wajib diisi saat approve' });
+      }
+      if (payment_method === 'cash') {
+        await pool.query(
+          `UPDATE order_additions SET status='customer_approved', payment_method='cash',
+           payment_status='pending', updated_at=NOW() WHERE id=?`,
+          [req.params.id]
+        );
+        return res.json({ success: true, status: 'customer_approved', payment_method: 'cash' });
+      }
+      // Online payment — buat Midtrans snap token
+      res.json({ success: true, status: 'customer_approved', payment_method: 'online', needsPayment: true });
+    } catch (e) {
+      res.status(500).json({ success: false, message: 'Gagal memproses respon' });
+    }
+  });
+
   // =========================
   // START
   // =========================
