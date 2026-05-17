@@ -41,6 +41,7 @@ export default function App() {
   const [previousPage, setPreviousPage] = useState("beranda");
   const [additionToken, setAdditionToken] = useState<string | null>(null);
   const [invoiceToken, setInvoiceToken] = useState<string | null>(null);
+  const [orderInvoiceToken, setOrderInvoiceToken] = useState<string | null>(null);
 
   // SEO: update title & meta tags setiap ganti halaman
   useSEO(currentPage);
@@ -97,13 +98,19 @@ export default function App() {
       setCurrentPage('invoice');
       return;
     }
+    if (path.startsWith('/order-invoice/')) {
+      const t = path.replace('/order-invoice/', '');
+      setOrderInvoiceToken(t);
+      setCurrentPage('order-invoice');
+      return;
+    }
     const page = PATH_TO_PAGE[path];
     if (page && page !== "beranda") setCurrentPage(page);
   }, []);
 
   // Update URL setiap kali halaman berubah
   useEffect(() => {
-    if (currentPage === 'tambahan' || currentPage === 'invoice') return;
+    if (currentPage === 'tambahan' || currentPage === 'invoice' || currentPage === 'order-invoice') return;
     const path = PAGE_TO_PATH[currentPage] ?? "/";
     if (window.location.pathname !== path) {
       window.history.pushState({ page: currentPage }, "", path);
@@ -331,6 +338,9 @@ export default function App() {
       case "invoice":
         if (!invoiceToken) return <Home setCurrentPage={setCurrentPage} />;
         return <InvoiceView token={invoiceToken} />;
+      case "order-invoice":
+        if (!orderInvoiceToken) return <Home setCurrentPage={setCurrentPage} />;
+        return <InvoiceView token={orderInvoiceToken} fetchUrl={`/api/order-invoice/${orderInvoiceToken}`} />;
       case "checkout":
         if (!authToken) {
           openLogin();

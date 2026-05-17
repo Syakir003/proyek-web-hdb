@@ -2,9 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2, Printer } from 'lucide-react';
 
-interface Props { token: string; }
+interface Props { token: string; fetchUrl?: string; }
 
-export default function InvoiceView({ token }: Props) {
+export default function InvoiceView({ token, fetchUrl }: Props) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -12,7 +12,7 @@ export default function InvoiceView({ token }: Props) {
   const fmtDate = (s: string) => new Date(s).toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'});
 
   useEffect(() => {
-    fetch(`/api/order-additions/token/${token}/invoice-data`)
+    fetch(fetchUrl ?? `/api/order-additions/token/${token}/invoice-data`)
       .then(r=>r.json())
       .then(d=>{ if(d.success) setData(d.data); })
       .finally(()=>setLoading(false));

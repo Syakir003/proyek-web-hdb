@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Check, X, Clock, Search, Trash2, UserCog, MessageSquare, Camera, ChevronDown, ChevronUp } from "lucide-react";
+import { Check, X, Clock, Search, Trash2, UserCog, MessageSquare, Camera, ChevronDown, ChevronUp, FileText, ExternalLink, Send } from "lucide-react";
 
 interface OrderPhoto {
   id: number;
@@ -15,6 +15,8 @@ export default function AdminOrders({ token }: { token: string }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedPhotos, setExpandedPhotos] = useState<Record<string, boolean>>({});
   const [orderPhotos, setOrderPhotos] = useState<Record<string, OrderPhoto[]>>({});
+  const [waLink, setWaLink] = useState<string | null>(null);
+  const [sendingInvoice, setSendingInvoice] = useState<string | null>(null);
 
   useEffect(() => {
     fetchOrders();
@@ -112,6 +114,27 @@ export default function AdminOrders({ token }: { token: string }) {
       if (response.ok) fetchOrders();
     } catch (error) {
       console.error("Failed to delete order", error);
+    }
+  };
+
+  const sendInvoice = async (orderId: string) => {
+    setSendingInvoice(orderId);
+    try {
+      const r = await fetch(`/api/orders/${orderId}/send-invoice`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const d = await r.json();
+      if (d.success) {
+        setWaLink(d.waLink);
+        fetchOrders();
+      } else {
+        alert(d.message || 'Gagal membuat invoice');
+      }
+    } catch {
+      alert('Gagal membuat invoice');
+    } finally {
+      setSendingInvoice(null);
     }
   };
 
@@ -241,6 +264,20 @@ export default function AdminOrders({ token }: { token: string }) {
         </div>
       </div>
 
+      {/* WA Invoice Banner */}
+      {waLink && (
+        <div className="mx-6 mt-4 bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center justify-between gap-3">
+          <span className="text-emerald-700 text-sm font-medium">Invoice berhasil dibuat — kirim ke customer via WhatsApp</span>
+          <div className="flex items-center gap-2 shrink-0">
+            <a href={waLink} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1.5 bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-emerald-600">
+              <ExternalLink className="w-3.5 h-3.5" /> Buka WA
+            </a>
+            <button onClick={() => setWaLink(null)} className="text-emerald-400 hover:text-emerald-600 text-lg leading-none px-1">×</button>
+          </div>
+        </div>
+      )}
+
       {/* Desktop Table */}
       <div className="hidden lg:block overflow-x-auto">
         <table className="w-full text-left border-collapse">
@@ -256,19 +293,20 @@ export default function AdminOrders({ token }: { token: string }) {
               <th className="p-4 font-medium">Teknisi</th>
               <th className="p-4 font-medium">Status</th>
               <th className="p-4 font-medium">Foto</th>
+              <th className="p-4 font-medium">Invoice</th>
               <th className="p-4 font-medium text-right">Aksi</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
             {loading ? (
               <tr>
-                <td colSpan={10} className="p-8 text-center text-slate-500">
+                <td colSpan={11} className="p-8 text-center text-slate-500">
                   Memuat data...
                 </td>
               </tr>
             ) : filteredOrders.length === 0 ? (
               <tr>
-                <td colSpan={10} className="p-8 text-center text-slate-500">
+                <td colSpan={11} className="p-8 text-center text-slate-500">
                   Tidak ada pesanan ditemukan.
                 </td>
               </tr>
@@ -344,6 +382,23 @@ export default function AdminOrders({ token }: { token: string }) {
                       {expandedPhotos[order.id] ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                     </button>
                   </td>
+                  <td className="p-4">
+                    {order.invoice_token ? (
+                      <a href={`/order-invoice/${order.invoice_token}`} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1 px-2 py-1 rounded-lg bg-sky-50 text-sky-600 text-xs font-medium hover:bg-sky-100">
+                        <FileText className="w-3.5 h-3.5" /> {order.invoice_number}
+                      </a>
+                    ) : order.status === 'completed' ? (
+                      <button
+                        onClick={() => sendInvoice(order.id)}
+                        disabled={sendingInvoice === order.id}
+                        className="flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-50 text-emerald-600 text-xs font-medium hover:bg-emerald-100 disabled:opacity-50"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        {sendingInvoice === order.id ? '...' : 'Kirim Invoice'}
+                      </button>
+                    ) : null}
+                  </td>
                   <td className="p-4 text-right space-x-2">
                     {(order.status === "pending" ||
                       order.status === "processing") && (
@@ -375,7 +430,7 @@ export default function AdminOrders({ token }: { token: string }) {
                 </tr>
                 {expandedPhotos[order.id] && (
                   <tr className="bg-slate-50">
-                    <td colSpan={11} className="px-6 py-4">
+                    <td colSpan={12} className="px-6 py-4">
                       {!orderPhotos[order.id] ? (
                         <p className="text-sm text-slate-400">Memuat foto...</p>
                       ) : orderPhotos[order.id].length === 0 ? (
@@ -535,6 +590,24 @@ export default function AdminOrders({ token }: { token: string }) {
                   </div>
                 )}
               </div>
+
+              {/* Invoice — mobile */}
+              {(order.invoice_token || order.status === 'completed') && (
+                <div className="mb-3">
+                  {order.invoice_token ? (
+                    <a href={`/order-invoice/${order.invoice_token}`} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 text-xs font-medium text-sky-600 hover:text-sky-700">
+                      <FileText className="w-3.5 h-3.5" /> Lihat Invoice {order.invoice_number}
+                    </a>
+                  ) : (
+                    <button onClick={() => sendInvoice(order.id)} disabled={sendingInvoice === order.id}
+                      className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 hover:text-emerald-700 disabled:opacity-50">
+                      <Send className="w-3.5 h-3.5" />
+                      {sendingInvoice === order.id ? 'Membuat invoice...' : 'Kirim Invoice'}
+                    </button>
+                  )}
+                </div>
+              )}
 
               <div className="flex justify-end gap-2">
                 {(order.status === "pending" ||
