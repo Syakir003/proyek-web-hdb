@@ -963,7 +963,8 @@ async function startServer() {
                 o.total_price as price, o.created_at,
                 GROUP_CONCAT(oi.item_name SEPARATOR ', ') as product_name,
                 SUM(oi.quantity) as quantity,
-                u.name as assigned_teknisi
+                u.name as assigned_teknisi,
+                (SELECT customer_token FROM order_additions WHERE order_id = o.id AND status = 'pending_customer' LIMIT 1) as pending_addition_token
          FROM orders o
          LEFT JOIN order_items oi ON o.id = oi.order_id
          LEFT JOIN users u ON o.teknisi_id = u.id
@@ -988,6 +989,7 @@ async function startServer() {
           price: Number(o.price) || 0,
           created_at: o.created_at,
           assigned_teknisi: o.assigned_teknisi || null,
+          pending_addition_token: o.pending_addition_token || null,
         })),
       });
     } catch {

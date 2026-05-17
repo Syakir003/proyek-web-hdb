@@ -9,6 +9,7 @@ export default function UserOrders({ token }: UserOrdersProps) {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [checkingStatus, setCheckingStatus] = useState<string | null>(null);
+  const [pendingAdditions, setPendingAdditions] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -119,6 +120,15 @@ export default function UserOrders({ token }: UserOrdersProps) {
             <p className="text-slate-500 text-sm mt-0.5">Riwayat dan status pemesanan Anda</p>
           </div>
         </div>
+
+        {orders.some((o: any) => o.pending_addition_token) && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-amber-800 text-sm">Ada penambahan menunggu persetujuan Anda</p>
+              <p className="text-amber-600 text-xs mt-0.5">Cek email/WA Anda untuk link persetujuan</p>
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-500">
