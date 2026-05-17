@@ -26,7 +26,9 @@ export default function OrderAdditionForm({ orderId, token, onSuccess, onCancel,
   const addRow = () => setItems(prev => [...prev, { item_type: 'material', ref_id: '', quantity: 1 }]);
   const removeRow = (i: number) => setItems(prev => prev.filter((_,idx)=>idx!==i));
   const updateRow = (i: number, patch: Partial<AdditionItemInput>) =>
-    setItems(prev => prev.map((r,idx) => idx===i ? { ...r, ...patch, ref_id: patch.item_type ? '' : r.ref_id } : r));
+    setItems(prev => prev.map((r, idx) =>
+      idx === i ? { ...r, ...patch, ...(patch.item_type !== undefined ? { ref_id: '' } : {}) } : r
+    ));
 
   const getOptions = (type: 'material'|'service') =>
     type === 'material' ? catalog : services;
