@@ -850,6 +850,19 @@ async function startServer() {
         return res.status(403).json({ success: false, error: "Invalid signature" });
       }
 
+      // Tangani payment untuk order additions (prefix ADD-)
+      if (orderId.startsWith('ADD-')) {
+        const additionId = orderId.split('-')[1];
+        if (['capture','settlement'].includes(notification.transaction_status)) {
+          await pool.query(
+            `UPDATE order_additions SET payment_status='paid', status='paid', updated_at=NOW() WHERE id=?`,
+            [additionId]
+          );
+        }
+        return res.json({ success: true });
+      }
+      // ... lanjut ke handler order biasa yang sudah ada
+
       await updateOrderFromMidtrans(orderId, notification.transaction_status, notification.transaction_id);
       res.json({ success: true });
     } catch {
@@ -1718,6 +1731,47 @@ async function startServer() {
       res.json({ success: true, status: 'customer_approved', payment_method: 'online', needsPayment: true });
     } catch (e) {
       res.status(500).json({ success: false, message: 'Gagal memproses respon' });
+    }
+  });
+
+  // POST /api/order-additions/:id/payment — inisiasi bayar online
+  app.post('/api/order-additions/:id/payment', async (req, res) => {
+    const { token } = req.body as { token: string };
+    try {
+      const [rows]: any = await pool.query(
+        `SELECT oa.*, o.customer_name, o.phone, o.user_id
+         FROM order_additions oa JOIN orders o ON oa.order_id = o.id
+         WHERE oa.id=? AND oa.customer_token=?`,
+        [req.params.id, token]
+      );
+      if (!rows.length) return res.status(404).json({ success: false, message: 'Data tidak ditemukan' });
+      const add = rows[0];
+      const [items]: any = await pool.query(
+        'SELECT * FROM order_addition_items WHERE order_addition_id=?', [add.id]
+      );
+      const total = items.reduce((s: number, i: any) => s + Number(i.subtotal), 0);
+
+      const midtransOrderId = `ADD-${add.id}-${Date.now()}`;
+      const transaction = await snap.createTransaction({
+        transaction_details: { order_id: midtransOrderId, gross_amount: Math.round(total) },
+        customer_details: { first_name: add.customer_name, phone: add.phone },
+        item_details: items.map((i: any) => ({
+          id: `${i.item_type}-${i.ref_id}`,
+          price: Math.round(Number(i.unit_price)),
+          quantity: Math.round(Number(i.quantity)),
+          name: i.name,
+        })),
+      });
+
+      await pool.query(
+        `UPDATE order_additions SET status='customer_approved', payment_method='online',
+         payment_status='pending', updated_at=NOW() WHERE id=?`,
+        [add.id]
+      );
+
+      res.json({ success: true, snapToken: transaction.token, redirectUrl: transaction.redirect_url });
+    } catch (e) {
+      res.status(500).json({ success: false, message: 'Gagal membuat transaksi' });
     }
   });
 
