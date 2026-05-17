@@ -275,6 +275,30 @@ const requireTeknisi = (req: any, res: any, next: any) => {
 };
 
 // =========================
+// HELPER — ORDER ADDITIONS
+// =========================
+async function getAdditionWithItems(additionId: number) {
+  const [rows]: any = await pool.query(
+    `SELECT oa.*,
+            o.customer_name, o.phone as customer_phone, o.address as customer_address,
+            u.name as teknisi_name
+     FROM order_additions oa
+     JOIN orders o ON oa.order_id = o.id
+     LEFT JOIN users u ON o.teknisi_id = u.id
+     WHERE oa.id = ?`,
+    [additionId]
+  );
+  if (!rows.length) return null;
+  const addition = rows[0];
+  const [items]: any = await pool.query(
+    'SELECT * FROM order_addition_items WHERE order_addition_id = ?',
+    [additionId]
+  );
+  const total = items.reduce((sum: number, i: any) => sum + Number(i.subtotal), 0);
+  return { ...addition, items, total };
+}
+
+// =========================
 // START SERVER
 // =========================
 async function startServer() {
@@ -1467,6 +1491,91 @@ async function startServer() {
       res.json({ success: true });
     } catch (e) {
       res.status(500).json({ success: false, message: 'Gagal mengubah status' });
+    }
+  });
+
+  // ── ORDER ADDITIONS ──────────────────────────────────────────────────
+
+  // POST /api/orders/:orderId/additions — buat pengajuan (teknisi atau customer)
+  app.post('/api/orders/:orderId/additions', authenticateToken, async (req: any, res) => {
+    const { orderId } = req.params;
+    const { items } = req.body as { items: Array<{ item_type: 'material'|'service'; ref_id: string; quantity: number }> };
+    if (!items?.length) {
+      return res.status(400).json({ success: false, message: 'items tidak boleh kosong' });
+    }
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      // Pastikan order ada
+      const [orderRows]: any = await conn.query('SELECT id FROM orders WHERE id=?', [orderId]);
+      if (!orderRows.length) {
+        await conn.rollback();
+        return res.status(404).json({ success: false, message: 'Order tidak ditemukan' });
+      }
+
+      // Resolve setiap item — ambil nama & harga dari katalog/services
+      const resolvedItems = [];
+      for (const item of items) {
+        if (item.item_type === 'material') {
+          const [mRows]: any = await conn.query(
+            'SELECT name, unit, price FROM material_catalog WHERE id=? AND is_active=1',
+            [item.ref_id]
+          );
+          if (!mRows.length) {
+            await conn.rollback();
+            return res.status(400).json({ success: false, message: `Material id ${item.ref_id} tidak ditemukan` });
+          }
+          const m = mRows[0];
+          resolvedItems.push({
+            item_type: 'material', ref_id: item.ref_id,
+            name: m.name, unit: m.unit,
+            quantity: item.quantity, unit_price: Number(m.price),
+            subtotal: Number(m.price) * item.quantity,
+          });
+        } else {
+          const [sRows]: any = await conn.query(
+            'SELECT name, price FROM services WHERE id=?',
+            [item.ref_id]
+          );
+          if (!sRows.length) {
+            await conn.rollback();
+            return res.status(400).json({ success: false, message: `Service id ${item.ref_id} tidak ditemukan` });
+          }
+          const s = sRows[0];
+          resolvedItems.push({
+            item_type: 'service', ref_id: item.ref_id,
+            name: s.name, unit: 'unit',
+            quantity: item.quantity, unit_price: Number(s.price),
+            subtotal: Number(s.price) * item.quantity,
+          });
+        }
+      }
+
+      const [addResult]: any = await conn.query(
+        `INSERT INTO order_additions (order_id, initiated_by, initiated_by_id, status)
+         VALUES (?, ?, ?, 'pending_admin')`,
+        [orderId, req.user.role === 'teknisi' ? 'teknisi' : 'customer', req.user.id]
+      );
+      const additionId = addResult.insertId;
+
+      for (const ri of resolvedItems) {
+        await conn.query(
+          `INSERT INTO order_addition_items
+           (order_addition_id, item_type, ref_id, name, unit, quantity, unit_price, subtotal)
+           VALUES (?,?,?,?,?,?,?,?)`,
+          [additionId, ri.item_type, ri.ref_id, ri.name, ri.unit, ri.quantity, ri.unit_price, ri.subtotal]
+        );
+      }
+
+      await conn.commit();
+      const result = await getAdditionWithItems(additionId);
+      res.json({ success: true, data: result });
+    } catch (e) {
+      await conn.rollback();
+      res.status(500).json({ success: false, message: 'Gagal membuat pengajuan' });
+    } finally {
+      conn.release();
     }
   });
 
