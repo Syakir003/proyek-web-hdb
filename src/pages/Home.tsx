@@ -24,31 +24,46 @@ import {
   Award,
   Shield,
   ShoppingCart,
+  MapPin,
 } from "lucide-react";
+
+// Daftar area layanan untuk SEO long-tail "service AC [kecamatan]"
+const serviceAreas = [
+  { kabupaten: "Kota Mojokerto", kecamatan: ["Magersari", "Prajurit Kulon", "Kranggan"] },
+  {
+    kabupaten: "Kabupaten Mojokerto",
+    kecamatan: [
+      "Mojosari", "Sooko", "Trowulan", "Puri", "Trawas",
+      "Pacet", "Pungging", "Dlanggar", "Bangsal", "Mojoanyar",
+      "Jatirejo", "Gondang", "Kemlagi", "Jetis", "Dawarblandong",
+      "Ngoro", "Kutorejo", "Gedeg",
+    ],
+  },
+];
 
 const heroSlides = [
   {
-    title: "Solusi AC Terbaik",
-    subtitle: "untuk Rumah & Bisnis Anda",
+    title: "Jasa Service AC Mojokerto",
+    subtitle: "Terpercaya & Bergaransi Resmi",
     description:
-      "Nikmati kesejukan sempurna dengan produk AC pilihan dan layanan profesional dari tim berpengalaman HDB Airconds.",
-    image: "/images/Pasang-4.jpg",
+      "Jasa cuci AC, instalasi, dan perbaikan AC profesional di Mojokerto & Mojosari. Teknisi bersertifikat, harga transparan, layanan 24/7.",
+    image: "/images/instalasi-ac-mojokerto-hdb-airconds.webp",
     accent: "Hemat Energi Hingga 40%",
   },
   {
-    title: "Instalasi Profesional",
-    subtitle: "Cepat, Bersih & Bergaransi",
+    title: "Instalasi AC Profesional",
+    subtitle: "Mojokerto, Mojosari & Sekitarnya",
     description:
-      "Teknisi bersertifikat kami siap melakukan instalasi AC di lokasi Anda dengan standar keamanan tertinggi.",
-    image: "/images/PROYEK-3.jpg",
+      "Teknisi bersertifikat HDB Airconds siap melakukan instalasi AC di rumah, kantor, dan industri Anda dengan standar keamanan tertinggi.",
+    image: "/images/proyek-instalasi-ac-mojokerto.webp",
     accent: "Garansi 2 Tahun",
   },
   {
-    title: "Perawatan & Servis",
+    title: "Cuci & Servis AC Terdekat",
     subtitle: "Layanan 24/7 Siap Hadir",
     description:
       "Jangan biarkan AC Anda rusak di saat paling dibutuhkan. Tim servis darurat kami hadir kapanpun dan dimanapun.",
-    image: "/images/Properti 4.jpg",
+    image: "/images/service-ac-properti-mojokerto.webp",
     accent: "Respon < 2 Jam",
   },
 ];
@@ -261,7 +276,11 @@ function BrandCard({
         {!imgError ? (
           <img
             src={logoUrl}
-            alt={name}
+            alt={`Logo ${name} - merek AC tersedia di HDB Airconds Mojokerto`}
+            width="80"
+            height="80"
+            loading="lazy"
+            decoding="async"
             className="w-full h-full object-contain"
             onError={() => setImgError(true)}
           />
@@ -287,7 +306,7 @@ const testimonials = [
     id: 1,
     name: "Budi Santoso",
     role: "Pemilik Rumah",
-    location: "Jakarta Selatan",
+    location: "Mojosari, Kab. Mojokerto",
     avatar:
       "https://images.unsplash.com/photo-1758600432569-4fcd02721f80?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=100&q=80",
     rating: 5,
@@ -299,7 +318,7 @@ const testimonials = [
     id: 2,
     name: "Siti Rahayu",
     role: "Ibu Rumah Tangga",
-    location: "Bekasi",
+    location: "Sooko, Kab. Mojokerto",
     avatar:
       "https://images.unsplash.com/photo-1702406647675-108ee05b20b9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=100&q=80",
     rating: 5,
@@ -311,7 +330,7 @@ const testimonials = [
     id: 3,
     name: "Ahmad Rizky",
     role: "Manager Operasional",
-    location: "Tangerang",
+    location: "Magersari, Kota Mojokerto",
     avatar:
       "https://images.unsplash.com/photo-1660330589827-da8ab7dd3c02?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=100&q=80",
     rating: 5,
@@ -323,7 +342,7 @@ const testimonials = [
     id: 4,
     name: "Dewi Kartika",
     role: "Arsitek Interior",
-    location: "Jakarta Barat",
+    location: "Puri, Kab. Mojokerto",
     avatar:
       "https://images.unsplash.com/photo-1773101883566-0827c4fd907c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=100&q=80",
     rating: 5,
@@ -335,7 +354,7 @@ const testimonials = [
     id: 5,
     name: "Reza Firmansyah",
     role: "Pengusaha Kuliner",
-    location: "Depok",
+    location: "Prajurit Kulon, Kota Mojokerto",
     avatar:
       "https://images.unsplash.com/photo-1711696488222-3a5af2a3dd72?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=100&q=80",
     rating: 4,
@@ -422,6 +441,7 @@ export default function Home({
             rating: 4.8,
             reviews: 0,
             image: p.image || null,
+            image_alt: p.image_alt || `${p.name} ${p.brand || ""} ${p.type || ""} ${p.capacity || ""} - jual AC Mojokerto HDB Airconds`.replace(/\s+/g, " ").trim(),
             tag: i === 0 ? "Terbaru" : p.type || "",
             tagColor: tagColors[i % tagColors.length],
             specs: [p.capacity, p.type, p.brand].filter(Boolean),
@@ -469,7 +489,16 @@ export default function Home({
             animate={{ opacity: i === activeSlide ? 1 : 0 }}
             transition={{ duration: 1.2 }}
           >
-            <img src={s.image} alt="" className="w-full h-full object-cover" />
+            <img
+              src={s.image}
+              alt={`${s.title} – HDB Airconds`}
+              width="1920"
+              height="1080"
+              loading={i === 0 ? "eager" : "lazy"}
+              fetchPriority={i === 0 ? "high" : "low"}
+              decoding="async"
+              className="w-full h-full object-cover"
+            />
           </motion.div>
         ))}
         <div className="absolute inset-0 bg-gradient-to-r from-slate-900/95 via-slate-900/75 to-transparent" />
@@ -491,6 +520,10 @@ export default function Home({
         </div>
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 sm:py-32 w-full">
+          {/* H1 statis untuk SEO — selalu konsisten, tidak berubah karena slider */}
+          <h1 className="sr-only">
+            HDB Airconds — Jasa Cuci & Service AC Mojokerto, Mojosari & Sekitarnya
+          </h1>
           <div className="max-w-3xl">
             <motion.div
               key={activeSlide + "b"}
@@ -508,12 +541,12 @@ export default function Home({
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
             >
-              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-tight mb-2">
+              <h2 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-tight mb-2">
                 {slide.title}
-              </h1>
-              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-sky-400 leading-tight mb-5">
-                {slide.subtitle}
               </h2>
+              <p className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-sky-400 leading-tight mb-5">
+                {slide.subtitle}
+              </p>
             </motion.div>
             <motion.p
               key={activeSlide + "d"}
@@ -665,13 +698,13 @@ export default function Home({
               Layanan Kami
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold text-slate-800 mb-4">
-              Semua Kebutuhan AC Anda,{" "}
-              <span className="text-sky-500">Kami Tangani</span>
+              Jasa Service AC Mojokerto &amp; Mojosari,{" "}
+              <span className="text-sky-500">Semua Kami Tangani</span>
             </h2>
             <p className="text-slate-500 max-w-2xl mx-auto">
-              Dari instalasi hingga perbaikan, kami menyediakan layanan AC
-              lengkap dengan standar kualitas tertinggi dan teknisi
-              berpengalaman.
+              Cuci AC, isi freon, instalasi, hingga perbaikan – layanan AC
+              lengkap di Mojokerto, Mojosari, dan sekitarnya dengan teknisi
+              bersertifikat dan harga transparan.
             </p>
           </motion.div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -748,11 +781,11 @@ export default function Home({
                 Produk Kami
               </div>
               <h2 className="text-3xl sm:text-4xl font-bold text-slate-800">
-                Pilihan AC <span className="text-sky-500">Terlengkap</span>
+                Sparepart &amp; AC <span className="text-sky-500">Terlengkap di Mojokerto</span>
               </h2>
               <p className="text-slate-500 mt-2 max-w-lg">
-                Dari berbagai merek terkemuka dengan harga terbaik dan garansi
-                resmi.
+                50+ merek AC terkemuka dengan harga terbaik, garansi resmi, dan
+                pengiriman ke seluruh Mojokerto & Mojosari.
               </p>
             </div>
             <button
@@ -778,7 +811,11 @@ export default function Home({
                   <div className="relative h-52 overflow-hidden bg-gradient-to-br from-sky-50 to-slate-100">
                     <img
                       src={product.image}
-                      alt={product.name}
+                      alt={product.image_alt || `${product.name} ${product.brand} ${product.category} - jual AC Mojokerto HDB Airconds`}
+                      width="400"
+                      height="208"
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                     <span
@@ -848,8 +885,12 @@ export default function Home({
             >
               <div className="relative rounded-3xl overflow-hidden aspect-[4/5] max-h-[500px] lg:max-h-[600px]">
                 <img
-                  src="/images/KerjaSama.jpg"
-                  alt="Tim Profesional HDB Airconds"
+                  src="/images/tim-teknisi-ac-mojokerto-hdb.webp"
+                  alt="Tim teknisi profesional HDB Airconds – jasa service AC Mojokerto berpengalaman"
+                  width="800"
+                  height="1000"
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 to-transparent" />
@@ -948,6 +989,89 @@ export default function Home({
         </div>
       </section>
 
+      {/* AREA LAYANAN — SEO long-tail per kecamatan */}
+      <section className="py-20 bg-gradient-to-br from-sky-50 via-white to-blue-50 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+            className="text-center mb-12"
+          >
+            <div className="inline-flex items-center gap-2 bg-sky-100 text-sky-700 px-4 py-1.5 rounded-full text-sm font-medium mb-4">
+              <MapPin className="w-4 h-4" />
+              Area Layanan
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold text-slate-800 mb-4">
+              Jasa Service AC{" "}
+              <span className="text-sky-500">Mojokerto Raya & Sekitarnya</span>
+            </h2>
+            <p className="text-slate-500 max-w-2xl mx-auto">
+              HDB Airconds melayani panggilan service, cuci, dan instalasi AC ke
+              seluruh wilayah Kota Mojokerto, Kabupaten Mojokerto, hingga Mojosari
+              dan kecamatan sekitarnya. Hubungi kami untuk wilayah yang belum
+              tercantum di bawah.
+            </p>
+          </motion.div>
+
+          <div className="grid lg:grid-cols-2 gap-6">
+            {serviceAreas.map((area, idx) => (
+              <motion.div
+                key={area.kabupaten}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: idx * 0.1 }}
+                className="bg-white rounded-2xl border border-sky-100 shadow-sm hover:shadow-md transition-shadow p-6 sm:p-8"
+              >
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-10 h-10 rounded-xl bg-sky-500 flex items-center justify-center">
+                    <MapPin className="w-5 h-5 text-white" />
+                  </div>
+                  <h3 className="text-lg sm:text-xl font-bold text-slate-800">
+                    {area.kabupaten}
+                  </h3>
+                </div>
+                <ul className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {area.kecamatan.map((kec) => (
+                    <li
+                      key={kec}
+                      className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-sky-600 transition-colors"
+                    >
+                      <CheckCircle className="w-3.5 h-3.5 text-sky-500 flex-shrink-0" />
+                      <span>Service AC {kec}</span>
+                    </li>
+                  ))}
+                </ul>
+              </motion.div>
+            ))}
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="text-center mt-10 bg-white rounded-2xl border border-sky-100 p-6 max-w-3xl mx-auto"
+          >
+            <p className="text-slate-600 text-sm mb-4">
+              <strong className="text-slate-800">Lokasi Kantor:</strong>{" "}
+              Jl. Gajah Mada No.19, Rw. III, Seduri, Kec. Mojosari, Kabupaten
+              Mojokerto, Jawa Timur 61382
+            </p>
+            <a
+              href="https://wa.me/6281515729739?text=Halo%20saya%20ingin%20bertanya%20layanan%20AC"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 bg-sky-500 hover:bg-sky-600 text-white px-6 py-3 rounded-xl font-semibold shadow-md shadow-sky-500/20 transition-all hover:-translate-y-0.5"
+            >
+              <Phone className="w-4 h-4" /> Cek Ketersediaan Wilayah Anda
+            </a>
+          </motion.div>
+        </div>
+      </section>
+
       {/* BRANDS */}
       <section className="py-20 bg-white overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12">
@@ -1023,7 +1147,11 @@ export default function Home({
                   <div className="flex-shrink-0 relative">
                     <img
                       src={testimonial.avatar}
-                      alt={testimonial.name}
+                      alt={`Testimoni ${testimonial.name} - pelanggan HDB Airconds, ${testimonial.service}`}
+                      width="80"
+                      height="80"
+                      loading="lazy"
+                      decoding="async"
                       className="w-20 h-20 rounded-2xl object-cover shadow-lg"
                     />
                     <div className="absolute -bottom-2 -right-2 w-7 h-7 rounded-xl bg-sky-500 flex items-center justify-center">
@@ -1088,37 +1216,6 @@ export default function Home({
               </button>
             </div>
           </div>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="flex flex-wrap justify-center gap-8 mt-14"
-          >
-            {[
-              { label: "Google Reviews", value: "4.9", count: "500+" },
-              { label: "Tokopedia", value: "4.8", count: "200+" },
-              { label: "Shopee", value: "4.9", count: "350+" },
-            ].map((platform) => (
-              <div key={platform.label} className="text-center">
-                <div className="flex items-center justify-center gap-1 mb-1">
-                  {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className="w-4 h-4 text-amber-400 fill-amber-400"
-                    />
-                  ))}
-                </div>
-                <div className="text-2xl font-bold text-slate-800">
-                  {platform.value}
-                </div>
-                <div className="text-slate-500 text-xs">{platform.label}</div>
-                <div className="text-slate-400 text-xs">
-                  {platform.count} ulasan
-                </div>
-              </div>
-            ))}
-          </motion.div>
         </div>
       </section>
 

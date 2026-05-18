@@ -83,7 +83,7 @@ const staticTeam = [
     name: "Kusnadi",
     position: "founder",
     role_label: "Founder & Owner",
-    image: "/images/Ayah.jpeg",
+    image: "/images/pendiri-hdb-airconds-mojokerto.webp",
   },
 ];
 
@@ -112,7 +112,7 @@ export default function About() {
     >
       {/* Hero */}
       <div className="relative bg-slate-900 text-white py-28 overflow-hidden">
-        <div className="absolute inset-0 bg-[url('/images/KerjaSama.jpg')] bg-cover bg-center" />
+        <div className="absolute inset-0 bg-[url('/images/tim-teknisi-ac-mojokerto-hdb.webp')] bg-cover bg-center" />
         <div className="absolute inset-0 bg-gradient-to-r from-sky-900/90 via-sky-800/75 to-sky-700/60" />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -226,8 +226,12 @@ export default function About() {
           >
             <div className="aspect-[4/3] bg-sky-50 rounded-3xl overflow-hidden border border-sky-100 group shadow-xl shadow-sky-100/50">
               <img
-                src="/images/Servis-5.jpg"
-                alt="Teknisi Bekerja"
+                src="/images/service-ac-mojokerto-teknisi.webp"
+                alt="Teknisi HDB Airconds bekerja melakukan service AC di Mojokerto"
+                width="800"
+                height="600"
+                loading="lazy"
+                decoding="async"
                 className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700"
               />
             </div>

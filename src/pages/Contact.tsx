@@ -54,7 +54,7 @@ export default function Contact() {
     >
       {/* Hero */}
       <div className="relative bg-slate-900 text-white py-28 overflow-hidden">
-        <div className="absolute inset-0 bg-[url('/images/TOKO.jpg')] bg-cover bg-center" />
+        <div className="absolute inset-0 bg-[url('/images/toko-ac-mojokerto-hdb-airconds.webp')] bg-cover bg-center" />
         <div className="absolute inset-0 bg-gradient-to-r from-sky-900/90 via-sky-800/75 to-sky-700/60" />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">

@@ -16,6 +16,8 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       host: '0.0.0.0',
+      // SPA fallback: semua route dikembalikan ke index.html agar URL routing bekerja
+      historyApiFallback: true,
       proxy: {
         '/api': {
           target: apiUrl,

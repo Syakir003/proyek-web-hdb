@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import {
   Search, ChevronLeft, Check, Droplets, Wrench, Snowflake,
-  ShoppingBag, MessageCircle, Star, Heart, X, ArrowRight,
-  Shield, SlidersHorizontal, Zap, Wind, ShoppingCart, Phone, Loader2,
+  ShoppingBag, MessageCircle, Heart, X, ArrowRight,
+  Shield, SlidersHorizontal, Zap, Gauge, Wind, ShoppingCart, Phone, Loader2,
 } from "lucide-react";
-import { products as staticProducts, Product } from "../data";
+import { products as staticProducts, services as staticServices, Product } from "../data";
 import { motion, AnimatePresence } from "motion/react";
 
 interface CatalogProps {
@@ -19,6 +19,8 @@ const getServiceIcon = (iconName: string) => {
     case "droplets": return <Droplets className="w-6 h-6" />;
     case "wrench": return <Wrench className="w-6 h-6" />;
     case "shopping-bag": return <ShoppingBag className="w-6 h-6" />;
+    case "zap": return <Zap className="w-6 h-6" />;
+    case "gauge": return <Gauge className="w-6 h-6" />;
     default: return <Wrench className="w-6 h-6" />;
   }
 };
@@ -64,8 +66,8 @@ export default function Catalog({ onCheckout, onAddToCart, onAddServiceToCart }:
   useEffect(() => {
     fetch("/api/services")
       .then((r) => r.json())
-      .then((data) => { if (data.success) setServicesData(data.data); })
-      .catch(() => {});
+      .then((data) => { if (data.success) setServicesData(data.data); else setServicesData(staticServices); })
+      .catch(() => setServicesData(staticServices));
   }, []);
 
   useEffect(() => {
@@ -91,7 +93,6 @@ export default function Catalog({ onCheckout, onAddToCart, onAddServiceToCart }:
   const uniqueBrands = ["Semua", ...Array.from(new Set(products.map((p) => p.brand)))];
   const uniqueTypes = ["Semua", ...Array.from(new Set(products.map((p) => p.type)))];
   const uniqueCapacities = ["Semua", ...Array.from(new Set(products.map((p) => p.capacity)))];
-  const categories = ["Semua", ...Array.from(new Set(products.map((p) => p.type)))];
 
   const formatRupiah = (price: number) =>
     new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(price);
@@ -118,7 +119,7 @@ export default function Catalog({ onCheckout, onAddToCart, onAddServiceToCart }:
   ].filter(Boolean).length;
 
   const resetFilters = () => {
-    setSearchTerm(""); setSelectedBrand("Semua"); setSelectedType("Semua"); setSelectedCapacity("Semua");
+    setSearchTerm(""); setSelectedBrand("Semua"); setSelectedType("Semua"); setSelectedCapacity("Semua"); setSortBy("default");
   };
 
   return (
@@ -133,7 +134,16 @@ export default function Catalog({ onCheckout, onAddToCart, onAddServiceToCart }:
             <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
               <div className="grid grid-cols-1 md:grid-cols-2">
                 <div className="aspect-square md:aspect-auto bg-gradient-to-br from-sky-50 to-slate-100 relative overflow-hidden">
-                  <img src={selectedProduct.image} alt={selectedProduct.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <img
+                    src={selectedProduct.image}
+                    alt={(selectedProduct as any).image_alt || `${selectedProduct.name} ${selectedProduct.brand} ${selectedProduct.type} ${selectedProduct.capacity} - jual AC Mojokerto HDB Airconds`}
+                    width="800"
+                    height="800"
+                    loading="eager"
+                    decoding="async"
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
                 </div>
                 <div className="p-8 md:p-12 flex flex-col justify-center">
                   <div className="flex flex-wrap items-center gap-2 mb-5">
@@ -160,10 +170,10 @@ export default function Catalog({ onCheckout, onAddToCart, onAddServiceToCart }:
                     </ul>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-3">
-                    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => onCheckout && onCheckout(selectedProduct)} className="flex-1 bg-sky-500 hover:bg-sky-600 text-white py-3.5 px-6 rounded-xl font-semibold transition-colors shadow-lg shadow-sky-500/30 flex justify-center items-center gap-2">
+                    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => onCheckout?.(selectedProduct)} className="flex-1 bg-sky-500 hover:bg-sky-600 text-white py-3.5 px-6 rounded-xl font-semibold transition-colors shadow-lg shadow-sky-500/30 flex justify-center items-center gap-2">
                       <ShoppingCart className="w-5 h-5" /> Pesan Sekarang
                     </motion.button>
-                    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => { onAddToCart?.(selectedProduct); alert("Produk ditambahkan ke keranjang!"); }} className="flex-1 bg-white border-2 border-sky-500 text-sky-600 py-3.5 px-6 rounded-xl font-semibold hover:bg-sky-50 transition-colors flex justify-center items-center gap-2">
+                    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => onAddToCart?.(selectedProduct)} className="flex-1 bg-white border-2 border-sky-500 text-sky-600 py-3.5 px-6 rounded-xl font-semibold hover:bg-sky-50 transition-colors flex justify-center items-center gap-2">
                       Tambah ke Keranjang
                     </motion.button>
                   </div>
@@ -211,7 +221,7 @@ export default function Catalog({ onCheckout, onAddToCart, onAddServiceToCart }:
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
               {/* Category Tabs */}
               <div className="flex flex-wrap gap-3 mb-6">
-                {categories.map((cat) => (
+                {uniqueTypes.map((cat) => (
                   <button key={cat} onClick={() => setSelectedType(cat === "Semua" ? "Semua" : cat)} className={`px-5 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${(cat === "Semua" ? selectedType === "Semua" : selectedType === cat) ? "bg-sky-500 text-white shadow-lg shadow-sky-500/30" : "bg-white text-slate-600 hover:bg-sky-50 hover:text-sky-600 border border-slate-200"}`}>
                     {cat}
                   </button>
@@ -298,7 +308,16 @@ export default function Catalog({ onCheckout, onAddToCart, onAddServiceToCart }:
                       <motion.div key={product.id} layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.3, delay: i * 0.04 }} className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:shadow-sky-100/50 transition-all duration-300 group">
                         {/* Image */}
                         <div className="relative h-52 bg-gradient-to-br from-sky-50 to-slate-100 overflow-hidden">
-                          <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" referrerPolicy="no-referrer" />
+                          <img
+                            src={product.image}
+                            alt={(product as any).image_alt || `${product.name} ${product.brand} ${product.type} ${product.capacity} - jual AC Mojokerto HDB Airconds`}
+                            width="400"
+                            height="208"
+                            loading="lazy"
+                            decoding="async"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            referrerPolicy="no-referrer"
+                          />
                           <span className="absolute top-3 left-3 bg-sky-500 text-white text-xs font-semibold px-2.5 py-1 rounded-lg">{product.brand}</span>
                           <button onClick={() => toggleWishlist(product.id)} className={`absolute top-3 right-3 w-8 h-8 rounded-lg flex items-center justify-center transition-all ${wishlist.includes(product.id) ? "bg-red-500 text-white" : "bg-white/80 text-slate-500 hover:text-red-500"}`}>
                             <Heart className={`w-4 h-4 ${wishlist.includes(product.id) ? "fill-white" : ""}`} />

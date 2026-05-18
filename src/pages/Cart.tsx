@@ -11,14 +11,16 @@ import {
   Droplets,
   Wrench,
   ShoppingBag,
+  Zap,
+  Gauge,
 } from "lucide-react";
 import { CartItem } from "../data";
 import { motion, AnimatePresence } from "motion/react";
 
 interface CartProps {
   cart: CartItem[];
-  onRemove: (id: string) => void;
-  onUpdateQuantity: (id: string, quantity: number) => void;
+  onRemove: (id: string, itemType: "product" | "service") => void;
+  onUpdateQuantity: (id: string, itemType: "product" | "service", quantity: number) => void;
   onCheckout: () => void;
   onLogin: () => void;
   authToken?: string | null;
@@ -31,6 +33,8 @@ const getServiceIcon = (iconName?: string) => {
     case "droplets": return <Droplets className="w-8 h-8 text-sky-500" />;
     case "wrench": return <Wrench className="w-8 h-8 text-sky-500" />;
     case "shopping-bag": return <ShoppingBag className="w-8 h-8 text-sky-500" />;
+    case "zap": return <Zap className="w-8 h-8 text-sky-500" />;
+    case "gauge": return <Gauge className="w-8 h-8 text-sky-500" />;
     default: return <Wrench className="w-8 h-8 text-sky-500" />;
   }
 };
@@ -132,7 +136,7 @@ export default function Cart({
               <AnimatePresence mode="popLayout">
                 {cart.map((item) => (
                   <motion.div
-                    key={item.id}
+                    key={`${item.itemType}-${item.id}`}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 20, scale: 0.9 }}
@@ -190,7 +194,7 @@ export default function Cart({
                         <motion.button
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.9 }}
-                          onClick={() => onRemove(item.id)}
+                          onClick={() => onRemove(item.id, item.itemType)}
                           className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200 flex-shrink-0"
                           title="Hapus dari keranjang"
                         >
@@ -204,7 +208,7 @@ export default function Cart({
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.9 }}
                           onClick={() =>
-                            onUpdateQuantity(item.id, item.quantity - 1)
+                            onUpdateQuantity(item.id, item.itemType, item.quantity - 1)
                           }
                           className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-red-50 hover:text-red-500 flex items-center justify-center transition-all text-slate-600"
                         >
@@ -217,7 +221,7 @@ export default function Cart({
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.9 }}
                           onClick={() =>
-                            onUpdateQuantity(item.id, item.quantity + 1)
+                            onUpdateQuantity(item.id, item.itemType, item.quantity + 1)
                           }
                           className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-sky-50 hover:text-sky-600 flex items-center justify-center transition-all text-slate-600"
                         >

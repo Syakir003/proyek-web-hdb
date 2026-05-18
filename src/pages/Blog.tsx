@@ -176,7 +176,7 @@ export default function Blog({ setCurrentPage }: { setCurrentPage: (page: string
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="bg-white min-h-screen">
       {/* Hero */}
       <div className="relative bg-slate-900 text-white py-24 overflow-hidden">
-        <div className="absolute inset-0 bg-[url('/images/Pasang-7.jpeg')] bg-cover bg-center" />
+        <div className="absolute inset-0 bg-[url('/images/jasa-pasang-ac-mojosari.webp')] bg-cover bg-center" />
         <div className="absolute inset-0 bg-gradient-to-r from-sky-900/90 via-sky-800/75 to-sky-700/60" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>

@@ -11,7 +11,7 @@ export default function AdminProducts({ token }: { token: string }) {
 
   // Form state
   const [formData, setFormData] = useState({
-    name: '', brand: '', type: '', capacity: '', price: '', description: '', image: ''
+    name: '', brand: '', type: '', capacity: '', price: '', description: '', image: '', image_alt: ''
   });
 
   useEffect(() => {
@@ -55,7 +55,8 @@ export default function AdminProducts({ token }: { token: string }) {
       capacity: product.capacity,
       price: product.price.toString(),
       description: product.description,
-      image: product.image
+      image: product.image,
+      image_alt: product.image_alt || '',
     });
     setEditingId(product.id);
     setImageFile(null);
@@ -75,7 +76,8 @@ export default function AdminProducts({ token }: { token: string }) {
       submitData.append('capacity', formData.capacity);
       submitData.append('price', formData.price);
       submitData.append('description', formData.description);
-      
+      submitData.append('image_alt', formData.image_alt);
+
       if (imageFile) {
         submitData.append('image', imageFile);
       }
@@ -91,7 +93,7 @@ export default function AdminProducts({ token }: { token: string }) {
         setShowAddModal(false);
         setEditingId(null);
         setImageFile(null);
-        setFormData({ name: '', brand: '', type: '', capacity: '', price: '', description: '', image: '' });
+        setFormData({ name: '', brand: '', type: '', capacity: '', price: '', description: '', image: '', image_alt: '' });
         fetchProducts();
       }
     } catch (error) {
@@ -102,7 +104,7 @@ export default function AdminProducts({ token }: { token: string }) {
   const openAddModal = () => {
     setEditingId(null);
     setImageFile(null);
-    setFormData({ name: '', brand: '', type: '', capacity: '', price: '', description: '', image: '' });
+    setFormData({ name: '', brand: '', type: '', capacity: '', price: '', description: '', image: '', image_alt: '' });
     setShowAddModal(true);
   };
 
@@ -235,6 +237,23 @@ export default function AdminProducts({ token }: { token: string }) {
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Deskripsi</label>
                   <textarea required rows={3} className="w-full border border-slate-300 rounded-lg px-3 py-2" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})}></textarea>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Alt Text Gambar (SEO)
+                    <span className="text-xs text-slate-400 font-normal ml-2">— opsional, kosongkan untuk auto-generate</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2"
+                    value={formData.image_alt}
+                    placeholder={`Auto: ${formData.name || '[Nama]'} ${formData.brand || '[Brand]'} ${formData.type || ''} ${formData.capacity || ''} - jual & jasa pasang AC Mojokerto HDB Airconds`.replace(/\s+/g, ' ').trim()}
+                    onChange={e => setFormData({...formData, image_alt: e.target.value})}
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Deskripsi gambar untuk Google Image Search & screen reader. Kalau kosong, server akan generate otomatis dari nama, brand, type, dan capacity.
+                  </p>
                 </div>
               </div>
               <div className="pt-4 flex justify-end gap-3">

@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+
+# Blokir halaman admin dari crawling
+Disallow: /admin
+Disallow: /teknisi
+Disallow: /api/
+
+# Sitemap
+Sitemap: https://www.hdbaircons.com/sitemap.xml

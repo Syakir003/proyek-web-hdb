@@ -121,7 +121,7 @@ export default function Layanan({ setCurrentPage, onAddServiceToCart }: LayananP
     >
       {/* Hero */}
       <div className="relative bg-slate-900 text-white py-24 overflow-hidden">
-        <div className="absolute inset-0 bg-[url('/images/Pasang-6.jpg')] bg-cover bg-center" />
+        <div className="absolute inset-0 bg-[url('/images/pasang-ac-split-mojokerto.webp')] bg-cover bg-center" />
         <div className="absolute inset-0 bg-gradient-to-r from-sky-900/90 via-sky-800/75 to-sky-700/60" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
@@ -130,11 +130,11 @@ export default function Layanan({ setCurrentPage, onAddServiceToCart }: LayananP
               Layanan Profesional
             </div>
             <h1 className="text-4xl md:text-5xl font-bold mb-4">
-              Semua Kebutuhan AC Anda,{" "}
-              <span className="text-sky-200">Kami Tangani</span>
+              Jasa Service AC Mojokerto &amp; Sekitarnya{" "}
+              <span className="text-sky-200">– Profesional &amp; Bergaransi</span>
             </h1>
             <p className="text-sky-100 text-lg max-w-2xl mx-auto mb-8">
-              Dari instalasi hingga perbaikan, kami hadir dengan layanan lengkap, teknisi bersertifikat, dan harga transparan tanpa biaya tersembunyi.
+              Jasa cuci AC, isi freon, bongkar pasang, dan perbaikan AC di Mojokerto, Mojosari, dan sekitarnya. Teknisi bersertifikat, harga transparan, garansi resmi.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <a
@@ -162,9 +162,9 @@ export default function Layanan({ setCurrentPage, onAddServiceToCart }: LayananP
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-14">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-3">
-              Pilih <span className="text-sky-500">Layanan</span> Anda
+              Pilih <span className="text-sky-500">Layanan AC</span> Anda
             </h2>
-            <p className="text-slate-500 max-w-xl mx-auto">Klik layanan untuk melihat detail lengkap dan hubungi kami untuk pemesanan.</p>
+            <p className="text-slate-500 max-w-xl mx-auto">Jasa cuci AC, service AC terdekat di Mojokerto dan Mojosari. Klik layanan untuk detail harga dan pemesanan.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
             {services.map((service, i) => {
@@ -244,9 +244,9 @@ export default function Layanan({ setCurrentPage, onAddServiceToCart }: LayananP
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-slate-900 mb-3">
-              Pertanyaan <span className="text-sky-500">Umum</span>
+              FAQ Jasa <span className="text-sky-500">Service AC Mojokerto</span>
             </h2>
-            <p className="text-slate-500">Hal-hal yang sering ditanyakan seputar layanan kami.</p>
+            <p className="text-slate-500">Pertanyaan umum seputar layanan cuci AC, service AC, dan instalasi AC di Mojokerto & Mojosari.</p>
           </div>
           <div className="space-y-3">
             {faqs.map((faq, i) => (
