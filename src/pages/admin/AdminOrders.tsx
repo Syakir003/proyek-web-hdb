@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Check, X, Clock, Search, Trash2, UserCog, MessageSquare, Camera, ChevronDown, ChevronUp, FileText, Send } from "lucide-react";
+import { Check, X, Clock, Search, Trash2, UserCog, MessageSquare, Camera, ChevronDown, ChevronUp, FileText, Send, CreditCard } from "lucide-react";
 
 interface OrderPhoto {
   id: number;
@@ -16,6 +16,7 @@ export default function AdminOrders({ token }: { token: string }) {
   const [expandedPhotos, setExpandedPhotos] = useState<Record<string, boolean>>({});
   const [orderPhotos, setOrderPhotos] = useState<Record<string, OrderPhoto[]>>({});
   const [sendingInvoice, setSendingInvoice] = useState<string | null>(null);
+  const [verifyingPayment, setVerifyingPayment] = useState<string | null>(null);
 
   useEffect(() => {
     fetchOrders();
@@ -113,6 +114,28 @@ export default function AdminOrders({ token }: { token: string }) {
       if (response.ok) fetchOrders();
     } catch (error) {
       console.error("Failed to delete order", error);
+    }
+  };
+
+  const verifyPaymentManually = async (order: any) => {
+    if (!confirm(`Verifikasi pembayaran order #${order.id} sebagai lunas?`)) return;
+    setVerifyingPayment(order.id);
+    try {
+      const response = await fetch(`/api/admin/orders/${order.id}/verify-payment`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        fetchOrders();
+      } else {
+        alert(data.error || "Gagal verifikasi pembayaran");
+      }
+    } catch (error) {
+      console.error("Failed to verify payment", error);
+      alert("Gagal verifikasi pembayaran");
+    } finally {
+      setVerifyingPayment(null);
     }
   };
 
@@ -243,9 +266,10 @@ export default function AdminOrders({ token }: { token: string }) {
 
   const filteredOrders = orders.filter(
     (order) =>
-      order.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.product_name.toLowerCase().includes(searchTerm.toLowerCase()),
+      (order.customer_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (order.product_name || "").toLowerCase().includes(searchTerm.toLowerCase()),
   );
+  const canVerifyPayment = (order: any) => order.payment_status !== "settlement" && order.payment_status !== "refund";
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -285,13 +309,13 @@ export default function AdminOrders({ token }: { token: string }) {
           <tbody className="divide-y divide-slate-200">
             {loading ? (
               <tr>
-                <td colSpan={11} className="p-8 text-center text-slate-500">
+                <td colSpan={12} className="p-8 text-center text-slate-500">
                   Memuat data...
                 </td>
               </tr>
             ) : filteredOrders.length === 0 ? (
               <tr>
-                <td colSpan={11} className="p-8 text-center text-slate-500">
+                <td colSpan={12} className="p-8 text-center text-slate-500">
                   Tidak ada pesanan ditemukan.
                 </td>
               </tr>
@@ -328,7 +352,20 @@ export default function AdminOrders({ token }: { token: string }) {
                     </span>
                   </td>
                   <td className="p-4 text-sm">
-                    {getPaymentStatusBadge(order.payment_status)}
+                    <div className="flex flex-col gap-2">
+                      {getPaymentStatusBadge(order.payment_status)}
+                      {canVerifyPayment(order) && (
+                        <button
+                          onClick={() => verifyPaymentManually(order)}
+                          disabled={verifyingPayment === order.id}
+                          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-emerald-50 text-emerald-600 text-xs font-medium hover:bg-emerald-100 disabled:opacity-50 transition-colors w-fit"
+                          title="Verifikasi pembayaran manual"
+                        >
+                          <CreditCard className="w-3.5 h-3.5" />
+                          {verifyingPayment === order.id ? "Memverifikasi..." : "Verifikasi Manual"}
+                        </button>
+                      )}
+                    </div>
                   </td>
                   <td className="p-4 text-sm font-semibold text-slate-900">
                     {formatRupiah(order.total_price || 0)}
@@ -512,6 +549,16 @@ export default function AdminOrders({ token }: { token: string }) {
                 <div>
                   <span className="text-slate-500">Pembayaran:</span>{" "}
                   {getPaymentStatusBadge(order.payment_status)}
+                  {canVerifyPayment(order) && (
+                    <button
+                      onClick={() => verifyPaymentManually(order)}
+                      disabled={verifyingPayment === order.id}
+                      className="mt-2 flex items-center gap-1.5 px-2 py-1 rounded-lg bg-emerald-50 text-emerald-600 text-xs font-medium hover:bg-emerald-100 disabled:opacity-50 transition-colors"
+                    >
+                      <CreditCard className="w-3.5 h-3.5" />
+                      {verifyingPayment === order.id ? "Memverifikasi..." : "Verifikasi Manual"}
+                    </button>
+                  )}
                 </div>
                 <div>
                   <span className="text-slate-500">Total:</span>{" "}

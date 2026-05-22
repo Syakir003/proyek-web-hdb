@@ -73,12 +73,57 @@ const JWT_SECRET = process.env.JWT_SECRET!;
 const PORT = Number(process.env.PORT) || 5000;
 
 // =========================
-// MIDTRANS SETUP
+// MIDTRANS SETUP + VALIDATION
 // =========================
+const MIDTRANS_IS_PRODUCTION = process.env.MIDTRANS_IS_PRODUCTION === "true";
+const MIDTRANS_SERVER_KEY = process.env.MIDTRANS_SERVER_KEY || "";
+const MIDTRANS_CLIENT_KEY = process.env.MIDTRANS_CLIENT_KEY || "";
+
+// Validation: cegah salah konfigurasi production/sandbox
+(function validateMidtransConfig() {
+  if (!MIDTRANS_SERVER_KEY || !MIDTRANS_CLIENT_KEY) {
+    console.warn("⚠️  WARNING: MIDTRANS_SERVER_KEY atau MIDTRANS_CLIENT_KEY belum diisi di .env");
+    console.warn("    Pembayaran TIDAK akan berfungsi sampai key diisi.");
+    return;
+  }
+
+  const serverIsSandbox = MIDTRANS_SERVER_KEY.startsWith("SB-Mid-server-");
+  const serverIsProduction = MIDTRANS_SERVER_KEY.startsWith("Mid-server-");
+  const clientIsSandbox = MIDTRANS_CLIENT_KEY.startsWith("SB-Mid-client-");
+  const clientIsProduction = MIDTRANS_CLIENT_KEY.startsWith("Mid-client-");
+
+  // Cek konsistensi prefix antara server & client key
+  const serverEnv = serverIsProduction ? "production" : (serverIsSandbox ? "sandbox" : "unknown");
+  const clientEnv = clientIsProduction ? "production" : (clientIsSandbox ? "sandbox" : "unknown");
+
+  if (serverEnv !== clientEnv) {
+    console.error("❌ ERROR: Server key dan Client key Midtrans BEDA environment!");
+    console.error(`    Server key terdeteksi: ${serverEnv} (${MIDTRANS_SERVER_KEY.substring(0, 20)}...)`);
+    console.error(`    Client key terdeteksi: ${clientEnv} (${MIDTRANS_CLIENT_KEY.substring(0, 20)}...)`);
+    console.error("    Pastikan keduanya sama-sama sandbox ATAU sama-sama production.");
+    process.exit(1);
+  }
+
+  // Cek IS_PRODUCTION flag konsisten dengan key
+  if (MIDTRANS_IS_PRODUCTION && serverEnv === "sandbox") {
+    console.error("❌ FATAL: MIDTRANS_IS_PRODUCTION=true tapi key masih SANDBOX!");
+    console.error("    Ganti MIDTRANS_SERVER_KEY & MIDTRANS_CLIENT_KEY ke production key (tanpa prefix SB-)");
+    console.error("    Atau set MIDTRANS_IS_PRODUCTION=false jika memang masih testing.");
+    process.exit(1);
+  }
+  if (!MIDTRANS_IS_PRODUCTION && serverEnv === "production") {
+    console.error("❌ FATAL: MIDTRANS_IS_PRODUCTION=false tapi key sudah PRODUCTION!");
+    console.error("    Set MIDTRANS_IS_PRODUCTION=true atau ganti key ke sandbox.");
+    process.exit(1);
+  }
+
+  console.log(`✅ Midtrans configured: ${MIDTRANS_IS_PRODUCTION ? "🔴 PRODUCTION (real money!)" : "🟡 SANDBOX (test mode)"}`);
+})();
+
 const snap = new midtransClient.Snap({
-  isProduction: process.env.MIDTRANS_IS_PRODUCTION === "true",
-  serverKey: process.env.MIDTRANS_SERVER_KEY,
-  clientKey: process.env.MIDTRANS_CLIENT_KEY,
+  isProduction: MIDTRANS_IS_PRODUCTION,
+  serverKey: MIDTRANS_SERVER_KEY,
+  clientKey: MIDTRANS_CLIENT_KEY,
 });
 
 // =========================
@@ -979,7 +1024,7 @@ async function startServer() {
       const [rows]: any = await pool.query(
         `SELECT o.id, o.customer_name, o.phone, o.address, o.payment_method,
                 o.order_status as status, COALESCE(o.payment_status, 'pending') as payment_status,
-                o.total_price as price, o.created_at,
+                o.total_price as price, o.created_at, o.midtrans_snap_token,
                 GROUP_CONCAT(oi.item_name SEPARATOR ', ') as product_name,
                 SUM(oi.quantity) as quantity,
                 u.name as assigned_teknisi,
@@ -1007,6 +1052,7 @@ async function startServer() {
           quantity: Number(o.quantity) || 0,
           price: Number(o.price) || 0,
           created_at: o.created_at,
+          snap_token: o.midtrans_snap_token || null,
           assigned_teknisi: o.assigned_teknisi || null,
           pending_addition_token: o.pending_addition_token || null,
         })),
@@ -1051,13 +1097,80 @@ async function startServer() {
   // =========================
   app.get("/api/admin/reports/detailed", authenticateToken, requireAdmin, async (_req, res) => {
     try {
-      const [monthlyRevenue]: any = await pool.query(
-        `SELECT DATE_FORMAT(created_at, '%Y-%m') as month, DATE_FORMAT(created_at, '%b %Y') as monthLabel,
-                COALESCE(SUM(total_price), 0) as revenue, COUNT(*) as order_count
-         FROM orders WHERE created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
-         GROUP BY DATE_FORMAT(created_at, '%Y-%m'), DATE_FORMAT(created_at, '%b %Y')
-         ORDER BY month ASC`,
+      const dayMs = 24 * 60 * 60 * 1000;
+      const today = new Date();
+      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const addDays = (date: Date, days: number) => {
+        const copy = new Date(date);
+        copy.setDate(copy.getDate() + days);
+        return copy;
+      };
+      const isoDate = (date: Date) => date.toISOString().slice(0, 10);
+      const formatShortDate = (date: Date) =>
+        new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short" }).format(date);
+      const formatMonth = (date: Date) =>
+        new Intl.DateTimeFormat("id-ID", { month: "short", year: "numeric" }).format(date);
+      const makePeriod = (month: string, monthLabel: string) => ({
+        month,
+        monthLabel,
+        revenue: 0,
+        orderCount: 0,
+      });
+
+      const yearlyStart = new Date(todayStart.getFullYear() - 4, 0, 1);
+      const [periodOrders]: any = await pool.query(
+        `SELECT created_at, total_price FROM orders WHERE created_at >= ?`,
+        [yearlyStart],
       );
+
+      const weeklyRevenue = Array.from({ length: 12 }, (_, i) => {
+        const weeksAgo = 11 - i;
+        const endDate = addDays(todayStart, -(weeksAgo * 7));
+        const startDate = addDays(endDate, -6);
+        return makePeriod(`${isoDate(startDate)}_${isoDate(endDate)}`, `${formatShortDate(startDate)} - ${formatShortDate(endDate)}`);
+      });
+
+      const monthlyRevenue = Array.from({ length: 12 }, (_, i) => {
+        const date = new Date(todayStart.getFullYear(), todayStart.getMonth() - 11 + i, 1);
+        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+        return makePeriod(key, formatMonth(date));
+      });
+
+      const yearlyRevenue = Array.from({ length: 5 }, (_, i) => {
+        const year = todayStart.getFullYear() - 4 + i;
+        return makePeriod(String(year), String(year));
+      });
+
+      const monthlyIndex = new Map(monthlyRevenue.map((item, index) => [item.month, index]));
+      const yearlyIndex = new Map(yearlyRevenue.map((item, index) => [item.month, index]));
+
+      for (const row of periodOrders as any[]) {
+        const createdAt = new Date(row.created_at);
+        const orderDay = new Date(createdAt.getFullYear(), createdAt.getMonth(), createdAt.getDate());
+        const revenue = Number(row.total_price) || 0;
+
+        const diffDays = Math.floor((todayStart.getTime() - orderDay.getTime()) / dayMs);
+        if (diffDays >= 0 && diffDays < 84) {
+          const bucket = Math.floor(diffDays / 7);
+          const index = 11 - bucket;
+          weeklyRevenue[index].revenue += revenue;
+          weeklyRevenue[index].orderCount += 1;
+        }
+
+        const monthKey = `${createdAt.getFullYear()}-${String(createdAt.getMonth() + 1).padStart(2, "0")}`;
+        const monthIndex = monthlyIndex.get(monthKey);
+        if (monthIndex !== undefined) {
+          monthlyRevenue[monthIndex].revenue += revenue;
+          monthlyRevenue[monthIndex].orderCount += 1;
+        }
+
+        const yearIndex = yearlyIndex.get(String(createdAt.getFullYear()));
+        if (yearIndex !== undefined) {
+          yearlyRevenue[yearIndex].revenue += revenue;
+          yearlyRevenue[yearIndex].orderCount += 1;
+        }
+      }
+
       const [topProducts]: any = await pool.query(
         `SELECT p.id, p.name, p.brand, p.capacity,
                 COUNT(oi.id) as total_quantity, SUM(oi.price * oi.quantity) as total_revenue
@@ -1082,7 +1195,12 @@ async function startServer() {
       res.json({
         success: true,
         data: {
-          monthlyRevenue: monthlyRevenue.map((r: any) => ({ month: r.month, monthLabel: r.monthLabel, revenue: Number(r.revenue) || 0, orderCount: Number(r.order_count) || 0 })),
+          monthlyRevenue,
+          revenueByPeriod: {
+            weekly: weeklyRevenue,
+            monthly: monthlyRevenue,
+            yearly: yearlyRevenue,
+          },
           topProducts: topProducts.map((r: any) => ({ id: r.id, name: r.name, brand: r.brand, capacity: r.capacity, quantity: Number(r.total_quantity) || 0, revenue: Number(r.total_revenue) || 0 })),
           topTeknisi: topTeknisi.map((r: any) => ({ id: r.id, name: r.name, assigned: Number(r.total_assigned) || 0, completed: Number(r.completed_orders) || 0 })),
           financialBreakdown: financialBreakdown.map((r: any) => ({ status: r.status, orderCount: Number(r.order_count) || 0, totalAmount: Number(r.total_amount) || 0 })),
@@ -1210,6 +1328,28 @@ async function startServer() {
       res.json({ success: true });
     } catch {
       res.status(500).json({ success: false, error: "Gagal mengupdate status" });
+    }
+  });
+
+  app.patch("/api/admin/orders/:id/verify-payment", authenticateToken, requireAdmin, async (req, res) => {
+    try {
+      const [rows]: any = await pool.query(
+        "SELECT id, order_status, payment_status FROM orders WHERE id=?",
+        [req.params.id],
+      );
+      if (!rows.length) return res.status(404).json({ success: false, error: "Order tidak ditemukan" });
+
+      const order = rows[0];
+      const nextOrderStatus = order.order_status === "cancelled" ? "pending" : (order.order_status || "pending");
+      await pool.query(
+        "UPDATE orders SET payment_status='settlement', order_status=?, status=?, updated_at=NOW() WHERE id=?",
+        [nextOrderStatus, nextOrderStatus, req.params.id],
+      );
+
+      res.json({ success: true, data: { payment_status: "settlement", order_status: nextOrderStatus } });
+    } catch (err) {
+      console.error("Manual verify payment error:", err);
+      res.status(500).json({ success: false, error: "Gagal verifikasi pembayaran" });
     }
   });
 
@@ -1904,7 +2044,7 @@ async function startServer() {
          JOIN orders o ON oa.order_id = o.id
          LEFT JOIN users u ON o.teknisi_id = u.id
          LEFT JOIN order_items oi ON oi.order_id = o.id
-         WHERE oa.customer_token=? AND oa.status='paid'
+         WHERE oa.customer_token=? AND (oa.status='paid' OR (oa.status='customer_approved' AND oa.payment_method='cash'))
          LIMIT 1`,
         [req.params.token]
       );
@@ -1951,7 +2091,7 @@ async function startServer() {
         `SELECT oa.*, o.customer_name, o.phone, SUM(oai.subtotal) as total
          FROM order_additions oa JOIN orders o ON oa.order_id = o.id
          JOIN order_addition_items oai ON oai.order_addition_id = oa.id
-         WHERE oa.id=? AND oa.status='paid'
+         WHERE oa.id=? AND (oa.status='paid' OR (oa.status='customer_approved' AND oa.payment_method='cash'))
          GROUP BY oa.id`,
         [req.params.id]
       );
@@ -2056,7 +2196,7 @@ async function startServer() {
       const [addItems]: any = await pool.query(
         `SELECT oai.* FROM order_addition_items oai
          JOIN order_additions oa ON oai.order_addition_id = oa.id
-         WHERE oa.order_id=? AND oa.status='paid'`,
+         WHERE oa.order_id=? AND (oa.status='paid' OR (oa.status='customer_approved' AND oa.payment_method='cash'))`,
         [order.id]
       );
 

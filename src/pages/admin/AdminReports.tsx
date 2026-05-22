@@ -38,6 +38,11 @@ interface FinancialItem {
 }
 interface ReportData {
   monthlyRevenue: DailyRevenue[];
+  revenueByPeriod?: {
+    weekly: DailyRevenue[];
+    monthly: DailyRevenue[];
+    yearly: DailyRevenue[];
+  };
   topProducts: TopProduct[];
   topTeknisi: TopTeknisi[];
   financialBreakdown: FinancialItem[];
@@ -804,13 +809,21 @@ const paymentStatusConfig: Record<string, { label: string; color: string; bg: st
 };
 
 /* ─────────────────────────  Main component  ─────────────────────── */
-type DateRange = "3" | "6" | "12";
+type RevenuePeriod = "weekly" | "monthly" | "yearly";
+type DateRange = "3" | "4" | "5" | "6" | "8" | "12";
+
+const periodConfig: Record<RevenuePeriod, { label: string; unit: string; bestLabel: string; ranges: DateRange[] }> = {
+  weekly: { label: "Minggu", unit: "Minggu", bestLabel: "Periode Terbaik", ranges: ["4", "8", "12"] },
+  monthly: { label: "Bulan", unit: "Bulan", bestLabel: "Bulan Terbaik", ranges: ["3", "6", "12"] },
+  yearly: { label: "Tahun", unit: "Tahun", bestLabel: "Tahun Terbaik", ranges: ["3", "5"] },
+};
 
 export default function AdminReports({ token }: { token: string }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [reports, setReports] = useState<ReportData | null>(null);
+  const [revenuePeriod, setRevenuePeriod] = useState<RevenuePeriod>("monthly");
   const [dateRange, setDateRange] = useState<DateRange>("12");
   const [exporting, setExporting] = useState<"csv" | "xlsx" | "pdf" | null>(null);
 
@@ -836,7 +849,14 @@ export default function AdminReports({ token }: { token: string }) {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   /* Filtered chart data */
-  const chartData = reports?.monthlyRevenue.slice(-Number(dateRange)) ?? [];
+  const activePeriodConfig = periodConfig[revenuePeriod];
+  const rangeOptions = activePeriodConfig.ranges;
+  const selectedRange = rangeOptions.includes(dateRange) ? dateRange : rangeOptions[rangeOptions.length - 1];
+  const periodRevenue =
+    reports?.revenueByPeriod?.[revenuePeriod] ??
+    (revenuePeriod === "monthly" ? reports?.monthlyRevenue : []) ??
+    [];
+  const chartData = periodRevenue.slice(-Number(selectedRange));
 
   /* KPI derived values */
   const totalRevenue = stats?.totalRevenue ?? 0;
@@ -846,8 +866,8 @@ export default function AdminReports({ token }: { token: string }) {
   const avgOrderValue = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
   const completionRate = totalOrders > 0 ? Math.round((completedOrders / totalOrders) * 100) : 0;
 
-  /* Best month */
-  const bestMonth = chartData.reduce((best, cur) => cur.revenue > (best?.revenue ?? 0) ? cur : best, chartData[0]);
+  /* Best period */
+  const bestPeriod = chartData.reduce((best, cur) => cur.revenue > (best?.revenue ?? 0) ? cur : best, chartData[0]);
 
   /* Revenue growth (last vs prev period) */
   const half = Math.floor(chartData.length / 2);
@@ -1015,26 +1035,43 @@ export default function AdminReports({ token }: { token: string }) {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
             <div className="flex items-center gap-2">
               <BarChart3 className="w-5 h-5 text-sky-500" />
-              <h3 className="font-bold text-slate-900">Grafik Pendapatan Bulanan</h3>
+              <h3 className="font-bold text-slate-900">Grafik Pendapatan</h3>
             </div>
-            {/* Date range filter */}
-            <div className="flex bg-slate-100 rounded-xl p-0.5 gap-0.5">
-              {(["3", "6", "12"] as DateRange[]).map(r => (
-                <button
-                  key={r}
-                  onClick={() => setDateRange(r)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    dateRange === r ? "bg-white text-sky-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                  }`}
-                >
-                  {r} Bln
-                </button>
-              ))}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex bg-slate-100 rounded-xl p-0.5 gap-0.5">
+                {(Object.keys(periodConfig) as RevenuePeriod[]).map(period => (
+                  <button
+                    key={period}
+                    onClick={() => {
+                      setRevenuePeriod(period);
+                      setDateRange(periodConfig[period].ranges[periodConfig[period].ranges.length - 1]);
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      revenuePeriod === period ? "bg-white text-sky-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                    }`}
+                  >
+                    {periodConfig[period].label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex bg-slate-100 rounded-xl p-0.5 gap-0.5">
+                {rangeOptions.map(r => (
+                  <button
+                    key={r}
+                    onClick={() => setDateRange(r)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      selectedRange === r ? "bg-white text-sky-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                    }`}
+                  >
+                    {r} {activePeriodConfig.unit}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
           {chartData.length > 0 ? (
-            <RevenueBarChart key={dateRange} data={chartData} />
+            <RevenueBarChart key={`${revenuePeriod}-${selectedRange}`} data={chartData} />
           ) : (
             <div className="h-48 flex items-center justify-center text-slate-400 text-sm">
               Belum ada data pendapatan
@@ -1057,26 +1094,26 @@ export default function AdminReports({ token }: { token: string }) {
             <p className="text-xs text-sky-500 mt-1">{chartData.reduce((s, d) => s + d.orderCount, 0)} pesanan</p>
           </div>
 
-          {bestMonth && (
+          {bestPeriod && (
             <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-xl border border-amber-100">
               <Star className="w-8 h-8 text-amber-400 shrink-0" />
               <div>
-                <p className="text-xs font-semibold text-amber-700">Bulan Terbaik</p>
-                <p className="font-bold text-slate-800 text-sm">{bestMonth.monthLabel}</p>
-                <p className="text-xs text-slate-500">{formatRupiah(bestMonth.revenue)}</p>
+                <p className="text-xs font-semibold text-amber-700">{activePeriodConfig.bestLabel}</p>
+                <p className="font-bold text-slate-800 text-sm">{bestPeriod.monthLabel}</p>
+                <p className="text-xs text-slate-500">{formatRupiah(bestPeriod.revenue)}</p>
               </div>
             </div>
           )}
 
           <div className="space-y-3">
             <div className="flex justify-between text-sm">
-              <span className="text-slate-500">Rata-rata/Bulan</span>
+              <span className="text-slate-500">Rata-rata/{activePeriodConfig.unit}</span>
               <span className="font-semibold text-slate-800">
                 {chartData.length > 0 ? formatRupiah(Math.round(chartData.reduce((s, d) => s + d.revenue, 0) / chartData.length)) : "—"}
               </span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-slate-500">Pesanan/Bulan</span>
+              <span className="text-slate-500">Pesanan/{activePeriodConfig.unit}</span>
               <span className="font-semibold text-slate-800">
                 {chartData.length > 0 ? Math.round(chartData.reduce((s, d) => s + d.orderCount, 0) / chartData.length) : "—"}
               </span>

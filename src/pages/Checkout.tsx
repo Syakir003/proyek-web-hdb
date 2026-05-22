@@ -58,7 +58,7 @@ export default function Checkout({
 
   const hasService = cart.some((item) => item.itemType === "service");
   const [status, setStatus] = useState<
-    "idle" | "loading" | "success" | "error"
+    "idle" | "loading" | "success" | "pending" | "error"
   >("idle");
   const [loadingMessage, setLoadingMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -215,6 +215,17 @@ export default function Checkout({
 
       const snapToken = snapTokenData.snapToken;
       const orderId = snapTokenData.orderId;
+      const syncPaymentStatus = async (transactionStatus: string, transactionId?: string) => {
+        await fetch("/api/midtrans/payment-callback", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            orderId,
+            transactionStatus,
+            transactionId,
+          }),
+        });
+      };
 
       console.log("💳 Snap Token received:", snapToken);
 
@@ -251,15 +262,7 @@ export default function Checkout({
           console.log("✅ Payment success after", duration, "ms:", result);
 
           try {
-            await fetch("/api/midtrans/payment-callback", {
-              method: "POST",
-              headers,
-              body: JSON.stringify({
-                orderId: orderId,
-                transactionStatus: result.transaction_status,
-                transactionId: result.transaction_id,
-              }),
-            });
+            await syncPaymentStatus(result.transaction_status, result.transaction_id);
             console.log("📱 Payment status synced to server");
           } catch (syncErr) {
             console.warn("⚠️ Failed to sync payment status:", syncErr);
@@ -276,44 +279,45 @@ export default function Checkout({
           console.log("⏳ Payment pending after", duration, "ms:", result);
 
           try {
-            await fetch("/api/midtrans/payment-callback", {
-              method: "POST",
-              headers,
-              body: JSON.stringify({
-                orderId: orderId,
-                transactionStatus: result.transaction_status,
-                transactionId: result.transaction_id,
-              }),
-            });
+            await syncPaymentStatus(result.transaction_status, result.transaction_id);
           } catch (syncErr) {
             console.warn("⚠️ Failed to sync pending status:", syncErr);
           }
 
           setOrderedCount(totalQuantity);
-          setStatus("success");
+          setStatus("pending");
           onClearCart();
           isSubmittingRef.current = false;
         },
-        onError: function (result: any) {
+        onError: async function (result: any) {
           const duration = Date.now() - snapStartTime;
           clearTimeout(snapTimeout);
           console.log("❌ Payment error after", duration, "ms:", result);
+          try {
+            await syncPaymentStatus(result?.transaction_status || "cancel", result?.transaction_id);
+          } catch (syncErr) {
+            console.warn("Failed to sync failed payment:", syncErr);
+          }
+
           setStatus("error");
           setErrorMessage(
             `Pembayaran gagal: ${result.status_message || "Silakan coba lagi"}.`,
           );
           isSubmittingRef.current = false;
         },
-        onClose: function () {
+        onClose: async function () {
           const duration = Date.now() - snapStartTime;
           clearTimeout(snapTimeout);
           console.log("❌ Payment popup closed after", duration, "ms");
-          // Only set error if took too long (user probably didn't intentionally close)
-          if (duration > 2000) {
-            setStatus("error");
-            setErrorMessage("Pembayaran dibatalkan");
-            isSubmittingRef.current = false;
+          try {
+            await syncPaymentStatus("cancel");
+          } catch (syncErr) {
+            console.warn("Failed to cancel unpaid order:", syncErr);
           }
+
+          setStatus("error");
+          setErrorMessage("Pembayaran dibatalkan. Item masih ada di keranjang dan bisa dicoba lagi.");
+          isSubmittingRef.current = false;
         },
       });
     } catch (error: any) {
@@ -326,7 +330,9 @@ export default function Checkout({
     }
   };
 
-  if (status === "success") {
+  if (status === "success" || status === "pending") {
+    const isPendingPayment = status === "pending";
+
     return (
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
@@ -348,7 +354,7 @@ export default function Checkout({
               <CheckCircle className="w-20 h-20 text-green-500 mx-auto mb-6" />
             </motion.div>
             <h2 className="text-3xl font-bold text-slate-900 mb-3">
-              Pesanan Berhasil!
+              {isPendingPayment ? "Menunggu Pembayaran" : "Pesanan Berhasil!"}
             </h2>
             <p className="text-slate-600 mb-2 text-lg">
               Terima kasih,{" "}
@@ -357,15 +363,26 @@ export default function Checkout({
               </span>
             </p>
             <p className="text-slate-500 mb-6">
-              Pesanan Anda untuk{" "}
-              <span className="font-bold">{orderedCount} barang</span> telah
-              kami terima dan sedang diproses.
+              {isPendingPayment ? (
+                <>
+                  Instruksi pembayaran untuk{" "}
+                  <span className="font-bold">{orderedCount} item</span> sudah
+                  dibuat. Silakan lanjutkan dari halaman pesanan jika belum
+                  selesai.
+                </>
+              ) : (
+                <>
+                  Pesanan Anda untuk{" "}
+                  <span className="font-bold">{orderedCount} barang</span> telah
+                  kami terima dan sedang diproses.
+                </>
+              )}
             </p>
 
             <div className="bg-sky-50 border border-sky-100 rounded-xl p-4 mb-8">
               <p className="text-sm text-sky-900 mb-2">
-                <span className="font-bold">Status Pesanan:</span> Menunggu
-                Konfirmasi
+                <span className="font-bold">Status Pesanan:</span>{" "}
+                {isPendingPayment ? "Menunggu Pembayaran" : "Menunggu Konfirmasi"}
               </p>
               <p className="text-xs text-sky-700">
                 Anda akan menerima update melalui WhatsApp di{" "}

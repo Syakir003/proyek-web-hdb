@@ -49,21 +49,39 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedProductForCheckout, setSelectedProductForCheckout] =
     useState<Product | null>(null);
-  const [cart, setCart] = useState<CartItem[]>(() => {
-    const savedCart = localStorage.getItem("cart");
-    return savedCart ? JSON.parse(savedCart) : [];
-  });
-
-  useEffect(() => {
-    localStorage.setItem("cart", JSON.stringify(cart));
-  }, [cart]);
-
   const [authToken, setAuthToken] = useState<string | null>(
     localStorage.getItem("authToken"),
   );
   const [userRole, setUserRole] = useState<"admin" | "user" | "teknisi" | null>(
     localStorage.getItem("userRole") as "admin" | "user" | "teknisi" | null,
   );
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    const savedToken = localStorage.getItem("authToken");
+    const savedRole = localStorage.getItem("userRole");
+    if (!savedToken || savedRole !== "user") return [];
+
+    const savedCart = localStorage.getItem("cart");
+    if (!savedCart) return [];
+
+    try {
+      return JSON.parse(savedCart);
+    } catch {
+      localStorage.removeItem("cart");
+      return [];
+    }
+  });
+  const canUseCart = Boolean(authToken && userRole === "user");
+  const visibleCart = canUseCart ? cart : [];
+
+  useEffect(() => {
+    if (!canUseCart) {
+      localStorage.removeItem("cart");
+      if (cart.length > 0) setCart([]);
+      return;
+    }
+
+    localStorage.setItem("cart", JSON.stringify(cart));
+  }, [cart, canUseCart]);
 
   // ── SEO: URL routing via History API ──────────────────────────────────────
   const PATH_TO_PAGE: Record<string, string> = {
@@ -142,6 +160,11 @@ export default function App() {
   }, [currentPage, authToken, userRole]);
 
   const handleCheckout = (product: Product) => {
+    if (!canUseCart) {
+      openLogin();
+      return;
+    }
+
     setCart((prev) => {
       const existing = prev.find(
         (item) => item.id === product.id && item.itemType === "product",
@@ -171,6 +194,11 @@ export default function App() {
   };
 
   const handleAddToCart = (product: Product) => {
+    if (!canUseCart) {
+      openLogin();
+      return;
+    }
+
     setCart((prev) => {
       const existing = prev.find(
         (item) => item.id === product.id && item.itemType === "product",
@@ -199,6 +227,11 @@ export default function App() {
   };
 
   const handleAddServiceToCart = (service: Service) => {
+    if (!canUseCart) {
+      openLogin();
+      return;
+    }
+
     setCart((prev) => {
       const existing = prev.find(
         (item) => item.id === service.id && item.itemType === "service",
@@ -264,8 +297,10 @@ export default function App() {
   const handleLogout = () => {
     localStorage.removeItem("authToken");
     localStorage.removeItem("userRole");
+    localStorage.removeItem("cart");
     setAuthToken(null);
     setUserRole(null);
+    setCart([]);
   };
 
   const openLogin = () => {
@@ -317,7 +352,7 @@ export default function App() {
       case "cart":
         return (
           <Cart
-            cart={cart}
+            cart={visibleCart}
             onRemove={handleRemoveFromCart}
             onUpdateQuantity={handleUpdateQuantity}
             onCheckout={() => setCurrentPage("checkout")}
@@ -348,7 +383,7 @@ export default function App() {
         }
         return (
           <Checkout
-            cart={cart}
+            cart={visibleCart}
             onClearCart={handleClearCart}
             onBack={() => setCurrentPage("cart")}
             onSuccess={() => setCurrentPage("pesanan-saya")}
@@ -360,25 +395,30 @@ export default function App() {
     }
   };
 
+  // Halaman invoice tidak perlu Navbar/Footer (dan tidak boleh tercetak)
+  const isInvoicePage = currentPage === "invoice" || currentPage === "order-invoice" || currentPage === "tambahan";
+
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans flex flex-col">
-      <Navbar
-        currentPage={currentPage}
-        setCurrentPage={setCurrentPage}
-        isMobileMenuOpen={isMobileMenuOpen}
-        setIsMobileMenuOpen={setIsMobileMenuOpen}
-        authToken={authToken}
-        userRole={userRole}
-        onLogout={handleLogout}
-        onOpenLogin={openLogin}
-        cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
-      />
+      {!isInvoicePage && (
+        <Navbar
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+          isMobileMenuOpen={isMobileMenuOpen}
+          setIsMobileMenuOpen={setIsMobileMenuOpen}
+          authToken={authToken}
+          userRole={userRole}
+          onLogout={handleLogout}
+          onOpenLogin={openLogin}
+          cartCount={visibleCart.reduce((sum, item) => sum + item.quantity, 0)}
+        />
+      )}
 
-      <main className={`grow ${currentPage !== "beranda" ? "pt-20" : ""}`}>
+      <main className={`grow ${!isInvoicePage && currentPage !== "beranda" ? "pt-20" : ""}`}>
         <AnimatePresence mode="wait">{renderPage()}</AnimatePresence>
       </main>
 
-      <Footer setCurrentPage={setCurrentPage} />
+      {!isInvoicePage && <Footer setCurrentPage={setCurrentPage} />}
 
       {/* Login Modal Overlay */}
       <AnimatePresence>
@@ -388,7 +428,7 @@ export default function App() {
       </AnimatePresence>
 
       {/* WhatsApp Floating Button */}
-      {currentPage !== "admin" && currentPage !== "teknisi" && (
+      {currentPage !== "admin" && currentPage !== "teknisi" && !isInvoicePage && (
         <a
           href="https://wa.me/6281515729739?text=Halo%20saya%20ingin%20bertanya"
           target="_blank"

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Package, Clock, Check, X, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Package, Clock, Check, X, RefreshCw, CreditCard } from 'lucide-react';
 
 interface UserOrdersProps {
   token: string;
@@ -9,33 +9,52 @@ export default function UserOrders({ token }: UserOrdersProps) {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [checkingStatus, setCheckingStatus] = useState<string | null>(null);
-  const [pendingAdditions, setPendingAdditions] = useState<any[]>([]);
+  const [payingOrder, setPayingOrder] = useState<string | null>(null);
+  const [paymentError, setPaymentError] = useState("");
+
+  const fetchOrders = useCallback(async () => {
+    try {
+      const response = await fetch('/api/user/orders', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setOrders(data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch user orders', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
 
   useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        const response = await fetch('/api/user/orders', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        const data = await response.json();
-        if (data.success) {
-          setOrders(data.data);
-        }
-      } catch (error) {
-        console.error('Failed to fetch user orders', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchOrders();
 
     // Auto-refresh setiap 5 detik untuk update status pembayaran (webhook/polling)
     const interval = setInterval(fetchOrders, 5000);
     return () => clearInterval(interval);
-  }, [token]);
+  }, [fetchOrders]);
+
+  useEffect(() => {
+    const isProduction = import.meta.env.VITE_MIDTRANS_IS_PRODUCTION === "true";
+    const scriptUrl = isProduction
+      ? "https://app.midtrans.com/snap/snap.js"
+      : "https://app.sandbox.midtrans.com/snap/snap.js";
+    const clientKey = import.meta.env.VITE_MIDTRANS_CLIENT_KEY || "";
+
+    if (window.snap && typeof window.snap.pay === "function") return;
+    if (document.querySelector(`script[src="${scriptUrl}"]`)) return;
+
+    const script = document.createElement("script");
+    script.src = scriptUrl;
+    script.setAttribute("data-client-key", clientKey);
+    script.async = true;
+    script.onerror = () => setPaymentError("Gagal memuat Midtrans Snap. Silakan muat ulang halaman.");
+    document.head.appendChild(script);
+  }, []);
 
   const checkPaymentStatus = async (orderId: string) => {
     setCheckingStatus(orderId);
@@ -51,21 +70,75 @@ export default function UserOrders({ token }: UserOrdersProps) {
       const data = await response.json();
       console.log('🔍 Check status result:', data);
       
-      // Refresh orders after checking
-      const ordersResponse = await fetch('/api/user/orders', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const ordersData = await ordersResponse.json();
-      if (ordersData.success) {
-        setOrders(ordersData.data);
-      }
+      await fetchOrders();
     } catch (error) {
       console.error('Failed to check payment status', error);
     } finally {
       setCheckingStatus(null);
     }
+  };
+
+  const syncPaymentStatus = async (orderId: string, result: any) => {
+    await fetch('/api/midtrans/payment-callback', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        orderId,
+        transactionStatus: result.transaction_status,
+        transactionId: result.transaction_id
+      })
+    });
+  };
+
+  const continuePayment = (order: any) => {
+    setPaymentError("");
+
+    if (!order.snap_token) {
+      setPaymentError("Token pembayaran tidak tersedia. Silakan buat pesanan ulang.");
+      return;
+    }
+
+    if (!window.snap || typeof window.snap.pay !== "function") {
+      setPaymentError("Midtrans Snap belum siap. Silakan tunggu sebentar lalu coba lagi.");
+      return;
+    }
+
+    setPayingOrder(order.id);
+    window.snap.pay(order.snap_token, {
+      onSuccess: async (result: any) => {
+        try {
+          await syncPaymentStatus(order.id, result);
+          await fetchOrders();
+        } finally {
+          setPayingOrder(null);
+        }
+      },
+      onPending: async (result: any) => {
+        try {
+          await syncPaymentStatus(order.id, result);
+          await fetchOrders();
+        } finally {
+          setPayingOrder(null);
+        }
+      },
+      onError: async (result: any) => {
+        try {
+          if (result?.transaction_status) {
+            await syncPaymentStatus(order.id, result);
+            await fetchOrders();
+          }
+        } finally {
+          setPaymentError(result?.status_message || "Pembayaran gagal. Silakan coba lagi.");
+          setPayingOrder(null);
+        }
+      },
+      onClose: () => {
+        setPayingOrder(null);
+      }
+    });
   };
 
   const formatRupiah = (price: number) => {
@@ -130,6 +203,12 @@ export default function UserOrders({ token }: UserOrdersProps) {
           </div>
         )}
 
+        {paymentError && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 text-sm text-red-700">
+            {paymentError}
+          </div>
+        )}
+
         {loading ? (
           <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-500">
             <RefreshCw className="w-8 h-8 mx-auto mb-3 text-sky-400 animate-spin" />
@@ -150,18 +229,35 @@ export default function UserOrders({ token }: UserOrdersProps) {
                     <span className="text-sm font-semibold text-sky-600">Order #<span className="text-slate-700">{order.id}</span></span>
                     <p className="text-sm text-slate-500 mt-0.5">{formatDate(order.created_at)}</p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     {getStatusBadge(order.status)}
                     {order.payment_status === 'pending' && (
-                      <button
-                        onClick={() => checkPaymentStatus(order.id)}
-                        disabled={checkingStatus === order.id}
-                        className="px-3 py-1 bg-sky-500 text-white rounded-full text-xs font-medium flex items-center hover:bg-sky-600 transition-colors disabled:opacity-50 shadow-sm"
-                        title="Cek status pembayaran ke Midtrans"
-                      >
-                        <RefreshCw className={`w-3 h-3 mr-1 ${checkingStatus === order.id ? 'animate-spin' : ''}`} />
-                        Cek Status
-                      </button>
+                      <>
+                        {order.snap_token && (
+                          <button
+                            onClick={() => continuePayment(order)}
+                            disabled={payingOrder === order.id}
+                            className="px-3 py-1 bg-emerald-500 text-white rounded-full text-xs font-medium flex items-center hover:bg-emerald-600 transition-colors disabled:opacity-50 shadow-sm"
+                            title="Lanjutkan pembayaran Midtrans"
+                          >
+                            {payingOrder === order.id ? (
+                              <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                            ) : (
+                              <CreditCard className="w-3 h-3 mr-1" />
+                            )}
+                            Lanjutkan Bayar
+                          </button>
+                        )}
+                        <button
+                          onClick={() => checkPaymentStatus(order.id)}
+                          disabled={checkingStatus === order.id}
+                          className="px-3 py-1 bg-sky-500 text-white rounded-full text-xs font-medium flex items-center hover:bg-sky-600 transition-colors disabled:opacity-50 shadow-sm"
+                          title="Cek status pembayaran ke Midtrans"
+                        >
+                          <RefreshCw className={`w-3 h-3 mr-1 ${checkingStatus === order.id ? 'animate-spin' : ''}`} />
+                          Cek Status
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -191,4 +287,3 @@ export default function UserOrders({ token }: UserOrdersProps) {
     </div>
   );
 }
-

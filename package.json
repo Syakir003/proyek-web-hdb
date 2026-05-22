@@ -11,7 +11,10 @@
     "start": "tsx server.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "midtrans:sandbox": "node scripts/switch-midtrans.cjs sandbox",
+    "midtrans:production": "node scripts/switch-midtrans.cjs production",
+    "midtrans:status": "node -e \"require('dotenv').config(); const k=process.env.MIDTRANS_SERVER_KEY||''; const isProd=process.env.MIDTRANS_IS_PRODUCTION==='true'; const det=k.startsWith('Mid-server-')?'production':k.startsWith('SB-Mid-server-')?'sandbox':'unknown'; console.log('Mode flag :',isProd?'PRODUCTION':'SANDBOX'); console.log('Key type  :',det); console.log('Match     :',(isProd&&det==='production')||(!isProd&&det==='sandbox')?'✅ OK':'❌ MISMATCH')\""
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.14",
