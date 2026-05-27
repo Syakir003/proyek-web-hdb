@@ -3,6 +3,7 @@ import {
   Search, ChevronLeft, Check, Droplets, Wrench, Snowflake,
   ShoppingBag, MessageCircle, Heart, X, ArrowRight,
   Shield, SlidersHorizontal, Zap, Gauge, Wind, ShoppingCart, Phone, Loader2,
+  Package,
 } from "lucide-react";
 import { products as staticProducts, services as staticServices, Product } from "../data";
 import { motion, AnimatePresence } from "motion/react";
@@ -36,6 +37,7 @@ export default function Catalog({ onCheckout, onAddToCart, onAddServiceToCart }:
   const [showFilters, setShowFilters] = useState(false);
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [servicesData, setServicesData] = useState<any[]>([]);
+  const [materialsData, setMaterialsData] = useState<any[]>([]);
   const [tierModal, setTierModal] = useState<{ open: boolean; service: any; tiers: any[]; loading: boolean; selected: any | null }>({
     open: false, service: null, tiers: [], loading: false, selected: null,
   });
@@ -68,6 +70,13 @@ export default function Catalog({ onCheckout, onAddToCart, onAddServiceToCart }:
       .then((r) => r.json())
       .then((data) => { if (data.success) setServicesData(data.data); else setServicesData(staticServices); })
       .catch(() => setServicesData(staticServices));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/materials")
+      .then((r) => r.json())
+      .then((data) => { if (data.success) setMaterialsData(data.data); })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -371,6 +380,74 @@ export default function Catalog({ onCheckout, onAddToCart, onAddServiceToCart }:
                 </a>
               </motion.div>
             </div>
+
+            {/* Materials / Sparepart Section */}
+            {materialsData.length > 0 && (() => {
+              const categories = Array.from(new Set(materialsData.map((m: any) => m.category || "Lainnya")));
+              return (
+                <div className="bg-slate-50 border-t border-slate-100 py-20">
+                  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="text-center mb-14">
+                      <div className="inline-flex items-center gap-2 bg-amber-50 text-amber-600 px-4 py-1.5 rounded-full text-sm font-medium mb-4">
+                        <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                        Sparepart & Material
+                      </div>
+                      <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-4">
+                        Katalog Material & Sparepart AC
+                      </h2>
+                      <p className="text-slate-500 max-w-2xl mx-auto">
+                        Kami menyediakan sparepart dan material AC berkualitas original. Harga transparan, garansi terjamin.
+                      </p>
+                    </div>
+
+                    {categories.map((cat) => {
+                      const items = materialsData.filter((m: any) => (m.category || "Lainnya") === cat);
+                      return (
+                        <div key={cat} className="mb-10">
+                          <div className="flex items-center gap-3 mb-4">
+                            <Package className="w-5 h-5 text-amber-500" />
+                            <h3 className="text-lg font-bold text-slate-700">{cat}</h3>
+                            <div className="flex-1 h-px bg-slate-200" />
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                            {items.map((item: any) => (
+                              <motion.div
+                                key={item.id}
+                                initial={{ opacity: 0, y: 10 }}
+                                whileInView={{ opacity: 1, y: 0 }}
+                                viewport={{ once: true }}
+                                className="bg-white rounded-2xl border border-slate-200 p-4 hover:shadow-md hover:border-amber-200 transition-all duration-200 group"
+                              >
+                                <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center mb-3 group-hover:bg-amber-100 transition-colors">
+                                  <Package className="w-5 h-5 text-amber-500" />
+                                </div>
+                                <p className="text-sm font-semibold text-slate-800 mb-1 leading-tight line-clamp-2">{item.name}</p>
+                                <p className="text-xs text-slate-400 mb-2">per {item.unit}</p>
+                                <p className="text-amber-600 font-bold text-sm">{formatRupiah(item.price)}</p>
+                              </motion.div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    <div className="mt-8 bg-amber-50 border border-amber-100 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+                      <div>
+                        <p className="font-semibold text-slate-800 mb-1">Butuh sparepart tertentu?</p>
+                        <p className="text-sm text-slate-500">Hubungi kami untuk ketersediaan dan harga terbaik.</p>
+                      </div>
+                      <a
+                        href="https://wa.me/6281515729739?text=Halo%2C%20saya%20ingin%20tanya%20sparepart%20AC"
+                        target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-5 py-2.5 rounded-xl font-semibold whitespace-nowrap transition-colors text-sm"
+                      >
+                        <MessageCircle className="w-4 h-4" /> Tanya via WhatsApp
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Services Section */}
             <div className="bg-white border-t border-slate-100 py-20">

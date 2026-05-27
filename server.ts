@@ -78,8 +78,10 @@ const PORT = Number(process.env.PORT) || 5000;
 const MIDTRANS_IS_PRODUCTION = process.env.MIDTRANS_IS_PRODUCTION === "true";
 const MIDTRANS_SERVER_KEY = process.env.MIDTRANS_SERVER_KEY || "";
 const MIDTRANS_CLIENT_KEY = process.env.MIDTRANS_CLIENT_KEY || "";
+console.log("🔑 SERVER KEY len:", MIDTRANS_SERVER_KEY.length, "| last char code:", MIDTRANS_SERVER_KEY.charCodeAt(MIDTRANS_SERVER_KEY.length - 1));
+console.log("🔑 CLIENT KEY len:", MIDTRANS_CLIENT_KEY.length, "| last char code:", MIDTRANS_CLIENT_KEY.charCodeAt(MIDTRANS_CLIENT_KEY.length - 1));
 
-// Validation: cegah salah konfigurasi production/sandbox
+// Validation: cek konfigurasi Midtrans (warning only, tidak crash)
 (function validateMidtransConfig() {
   if (!MIDTRANS_SERVER_KEY || !MIDTRANS_CLIENT_KEY) {
     console.warn("⚠️  WARNING: MIDTRANS_SERVER_KEY atau MIDTRANS_CLIENT_KEY belum diisi di .env");
@@ -92,29 +94,24 @@ const MIDTRANS_CLIENT_KEY = process.env.MIDTRANS_CLIENT_KEY || "";
   const clientIsSandbox = MIDTRANS_CLIENT_KEY.startsWith("SB-Mid-client-");
   const clientIsProduction = MIDTRANS_CLIENT_KEY.startsWith("Mid-client-");
 
-  // Cek konsistensi prefix antara server & client key
-  const serverEnv = serverIsProduction ? "production" : (serverIsSandbox ? "sandbox" : "unknown");
-  const clientEnv = clientIsProduction ? "production" : (clientIsSandbox ? "sandbox" : "unknown");
+  // Beberapa akun sandbox Midtrans tidak menggunakan prefix SB-
+  // sehingga prefix check hanya sebagai informasi, bukan blocking
+  const serverEnv = serverIsSandbox ? "sandbox" : serverIsProduction ? "production" : "unknown";
+  const clientEnv = clientIsSandbox ? "sandbox" : clientIsProduction ? "production" : "unknown";
 
-  if (serverEnv !== clientEnv) {
-    console.error("❌ ERROR: Server key dan Client key Midtrans BEDA environment!");
-    console.error(`    Server key terdeteksi: ${serverEnv} (${MIDTRANS_SERVER_KEY.substring(0, 20)}...)`);
-    console.error(`    Client key terdeteksi: ${clientEnv} (${MIDTRANS_CLIENT_KEY.substring(0, 20)}...)`);
-    console.error("    Pastikan keduanya sama-sama sandbox ATAU sama-sama production.");
-    process.exit(1);
+  if (serverEnv !== "unknown" && clientEnv !== "unknown" && serverEnv !== clientEnv) {
+    console.warn("⚠️  WARNING: Server key dan Client key terdeteksi beda environment!");
+    console.warn(`    Server key: ${serverEnv} (${MIDTRANS_SERVER_KEY.substring(0, 20)}...)`);
+    console.warn(`    Client key: ${clientEnv} (${MIDTRANS_CLIENT_KEY.substring(0, 20)}...)`);
   }
 
-  // Cek IS_PRODUCTION flag konsisten dengan key
-  if (MIDTRANS_IS_PRODUCTION && serverEnv === "sandbox") {
-    console.error("❌ FATAL: MIDTRANS_IS_PRODUCTION=true tapi key masih SANDBOX!");
-    console.error("    Ganti MIDTRANS_SERVER_KEY & MIDTRANS_CLIENT_KEY ke production key (tanpa prefix SB-)");
-    console.error("    Atau set MIDTRANS_IS_PRODUCTION=false jika memang masih testing.");
-    process.exit(1);
+  // Hanya warn jika prefix SB- jelas menandakan sandbox tapi flag production=true, atau sebaliknya
+  if (MIDTRANS_IS_PRODUCTION && serverIsSandbox) {
+    console.warn("⚠️  WARNING: MIDTRANS_IS_PRODUCTION=true tapi key berawalan SB- (sandbox).");
   }
-  if (!MIDTRANS_IS_PRODUCTION && serverEnv === "production") {
-    console.error("❌ FATAL: MIDTRANS_IS_PRODUCTION=false tapi key sudah PRODUCTION!");
-    console.error("    Set MIDTRANS_IS_PRODUCTION=true atau ganti key ke sandbox.");
-    process.exit(1);
+  if (!MIDTRANS_IS_PRODUCTION && serverIsProduction) {
+    console.warn(`⚠️  WARNING: MIDTRANS_IS_PRODUCTION=false dengan key berawalan Mid-server- (production-style).`);
+    console.warn("    Jika ini akun sandbox tanpa prefix SB-, abaikan pesan ini.");
   }
 
   console.log(`✅ Midtrans configured: ${MIDTRANS_IS_PRODUCTION ? "🔴 PRODUCTION (real money!)" : "🟡 SANDBOX (test mode)"}`);
@@ -192,6 +189,18 @@ async function testDB() {
       mime_type VARCHAR(50) DEFAULT 'image/jpeg',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       INDEX idx_order_id (order_id)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS services (
+      id         VARCHAR(50) NOT NULL PRIMARY KEY,
+      name       VARCHAR(200) NOT NULL,
+      price      DECIMAL(12,2) NOT NULL DEFAULT 0,
+      description TEXT,
+      icon       VARCHAR(50) NOT NULL DEFAULT 'wrench',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )
   `);
 
@@ -530,6 +539,21 @@ async function startServer() {
     }
   });
 
+  // GET /api/materials — public, hanya item aktif
+  app.get("/api/materials", async (_req, res) => {
+    try {
+      const [rows] = await pool.query(
+        "SELECT id, name, unit, price, category FROM material_catalog WHERE is_active = 1 ORDER BY category, name"
+      );
+      res.json({
+        success: true,
+        data: (rows as any[]).map(row => ({ ...row, price: Number(row.price) || 0 })),
+      });
+    } catch {
+      res.status(500).json({ success: false, error: "Gagal mengambil material" });
+    }
+  });
+
   // =========================
   // PUBLIC — TEAM
   // =========================
@@ -636,13 +660,16 @@ async function startServer() {
 
   app.post("/api/admin/services", authenticateToken, requireAdmin, async (req, res) => {
     const { name, price, description, icon } = req.body;
+    if (!name || !price) return res.status(400).json({ success: false, error: "Nama dan harga wajib diisi" });
     try {
+      const id = `svc-${crypto.randomUUID().slice(0, 8)}`;
       await pool.query(
-        "INSERT INTO services (name, price, description, icon) VALUES (?,?,?,?)",
-        [name, price, description, icon],
+        "INSERT INTO services (id, name, price, description, icon) VALUES (?,?,?,?,?)",
+        [id, name, Number(price), description, icon || "wrench"],
       );
-      res.json({ success: true });
-    } catch {
+      res.json({ success: true, data: { id } });
+    } catch (e) {
+      console.error("POST /api/admin/services error:", e);
       res.status(500).json({ success: false, error: "Gagal menambah layanan" });
     }
   });
@@ -652,10 +679,11 @@ async function startServer() {
     try {
       await pool.query(
         "UPDATE services SET name=?, price=?, description=?, icon=? WHERE id=?",
-        [name, price, description, icon, req.params.id],
+        [name, Number(price), description, icon, req.params.id],
       );
       res.json({ success: true });
-    } catch {
+    } catch (e) {
+      console.error("PUT /api/admin/services error:", e);
       res.status(500).json({ success: false, error: "Gagal mengupdate layanan" });
     }
   });

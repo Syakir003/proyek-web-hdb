@@ -24,7 +24,9 @@ export default function AdminServices({ token }: { token: string }) {
       const res = await fetch('/api/admin/services', { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       if (data.success) setServices(data.data);
-    } catch { } finally { setLoading(false); }
+    } catch (e) {
+      console.error('fetchServices error:', e);
+    } finally { setLoading(false); }
   };
 
   const fetchTiers = async (serviceId: string) => {
@@ -88,9 +90,13 @@ export default function AdminServices({ token }: { token: string }) {
   const handleDelete = async (id: string) => {
     if (!confirm('Yakin ingin menghapus layanan ini?')) return;
     try {
-      await fetch(`/api/admin/services/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
-      fetchServices();
-    } catch { }
+      const res = await fetch(`/api/admin/services/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (data.success) fetchServices();
+      else alert(data.error || 'Gagal menghapus layanan');
+    } catch {
+      alert('Gagal menghapus layanan. Coba lagi.');
+    }
   };
 
   const handleEdit = (service: any) => {
@@ -104,16 +110,23 @@ export default function AdminServices({ token }: { token: string }) {
     try {
       const url = editingId ? `/api/admin/services/${editingId}` : '/api/admin/services';
       const method = editingId ? 'PUT' : 'POST';
-      await fetch(url, {
+      const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, price: Number(formData.price) }),
       });
-      setShowAddModal(false);
-      setEditingId(null);
-      setFormData({ name: '', price: '', description: '', icon: 'wrench' });
-      fetchServices();
-    } catch { }
+      const data = await res.json();
+      if (data.success) {
+        setShowAddModal(false);
+        setEditingId(null);
+        setFormData({ name: '', price: '', description: '', icon: 'wrench' });
+        fetchServices();
+      } else {
+        alert(data.error || 'Gagal menyimpan layanan');
+      }
+    } catch {
+      alert('Gagal menyimpan layanan. Coba lagi.');
+    }
   };
 
   const openAddModal = () => {

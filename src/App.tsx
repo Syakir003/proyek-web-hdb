@@ -30,6 +30,10 @@ import { useSEO } from "./hooks/useSEO";
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState(() => {
+    const path = window.location.pathname;
+    if (path.startsWith('/tambahan/')) return 'tambahan';
+    if (path.startsWith('/invoice/')) return 'invoice';
+    if (path.startsWith('/order-invoice/')) return 'order-invoice';
     const savedToken = localStorage.getItem("authToken");
     const savedRole = localStorage.getItem("userRole");
     if (savedToken) {
@@ -39,9 +43,18 @@ export default function App() {
     return "beranda";
   });
   const [previousPage, setPreviousPage] = useState("beranda");
-  const [additionToken, setAdditionToken] = useState<string | null>(null);
-  const [invoiceToken, setInvoiceToken] = useState<string | null>(null);
-  const [orderInvoiceToken, setOrderInvoiceToken] = useState<string | null>(null);
+  const [additionToken, setAdditionToken] = useState<string | null>(() => {
+    const path = window.location.pathname;
+    return path.startsWith('/tambahan/') ? path.replace('/tambahan/', '') : null;
+  });
+  const [invoiceToken, setInvoiceToken] = useState<string | null>(() => {
+    const path = window.location.pathname;
+    return path.startsWith('/invoice/') ? path.replace('/invoice/', '') : null;
+  });
+  const [orderInvoiceToken, setOrderInvoiceToken] = useState<string | null>(() => {
+    const path = window.location.pathname;
+    return path.startsWith('/order-invoice/') ? path.replace('/order-invoice/', '') : null;
+  });
 
   // SEO: update title & meta tags setiap ganti halaman
   useSEO(currentPage);
