@@ -521,7 +521,7 @@ async function startServer() {
     try {
       const [rows] = await pool.query(
         `SELECT id, name, slug, brand, type, capacity, price, stock, description, features, image_alt, created_at, updated_at,
-                IF(image IS NOT NULL, CONCAT('data:', COALESCE(image_mime, 'image/webp'), ';base64,', TO_BASE64(image)), NULL) as image
+                IF(image IS NOT NULL, CONCAT('/api/products/', id, '/image'), NULL) as image
          FROM products ORDER BY created_at DESC`,
       );
       res.json({
@@ -561,7 +561,7 @@ async function startServer() {
     try {
       const [rows] = await pool.query(
         `SELECT id, name, position, role_label, bio, phone, sort_order,
-                IF(image IS NOT NULL, CONCAT('data:', COALESCE(image_mime, 'image/webp'), ';base64,', TO_BASE64(image)), NULL) as image
+                IF(image IS NOT NULL, CONCAT('/api/team/', id, '/image'), NULL) as image
          FROM team WHERE is_active = 1 ORDER BY sort_order ASC, id ASC`,
       );
       res.json({ success: true, data: rows });
@@ -578,7 +578,7 @@ async function startServer() {
     try {
       const [rows] = await pool.query(
         `SELECT id, name, slug, brand, type, capacity, price, stock, description, features, image_alt, created_at, updated_at,
-                IF(image IS NOT NULL, CONCAT('data:', COALESCE(image_mime, 'image/webp'), ';base64,', TO_BASE64(image)), NULL) as image
+                IF(image IS NOT NULL, CONCAT('/api/products/', id, '/image'), NULL) as image
          FROM products ORDER BY created_at DESC`,
       );
       res.json({ success: true, data: rows });
@@ -765,7 +765,7 @@ async function startServer() {
     try {
       const [rows] = await pool.query(
         `SELECT id, name, position, role_label, bio, phone, sort_order, is_active,
-                IF(image IS NOT NULL, CONCAT('data:', COALESCE(image_mime, 'image/webp'), ';base64,', TO_BASE64(image)), NULL) as image
+                IF(image IS NOT NULL, CONCAT('/api/team/', id, '/image'), NULL) as image
          FROM team ORDER BY sort_order ASC, id ASC`,
       );
       res.json({ success: true, data: rows });
@@ -920,8 +920,8 @@ async function startServer() {
     }
 
     await pool.query(
-      `UPDATE orders SET payment_status = ?, order_status = ?, status = ?, midtrans_transaction_id = COALESCE(?, midtrans_transaction_id) WHERE id = ?`,
-      [paymentStatus, orderStatus, orderStatus, transactionId, orderId],
+      `UPDATE orders SET payment_status = ?, order_status = ?, midtrans_transaction_id = COALESCE(?, midtrans_transaction_id) WHERE id = ?`,
+      [paymentStatus, orderStatus, transactionId, orderId],
     );
     return { paymentStatus, orderStatus };
   }
@@ -1370,8 +1370,8 @@ async function startServer() {
       const order = rows[0];
       const nextOrderStatus = order.order_status === "cancelled" ? "pending" : (order.order_status || "pending");
       await pool.query(
-        "UPDATE orders SET payment_status='settlement', order_status=?, status=?, updated_at=NOW() WHERE id=?",
-        [nextOrderStatus, nextOrderStatus, req.params.id],
+        "UPDATE orders SET payment_status='settlement', order_status=?, updated_at=NOW() WHERE id=?",
+        [nextOrderStatus, req.params.id],
       );
 
       res.json({ success: true, data: { payment_status: "settlement", order_status: nextOrderStatus } });
@@ -1592,6 +1592,30 @@ async function startServer() {
     }
   });
 
+  // Image endpoint by team member ID — listing tim memakai URL ini, bukan base64
+  app.get("/api/team/:id/image", async (req, res) => {
+    try {
+      const [rows]: any = await pool.query(
+        `SELECT image, COALESCE(image_mime, 'image/webp') as mime, name
+         FROM team WHERE id=? LIMIT 1`,
+        [req.params.id],
+      );
+      if (!rows.length || !rows[0].image) {
+        return res.status(404).send("Image not found");
+      }
+      const row = rows[0];
+      res.set({
+        "Content-Type": row.mime,
+        "Cache-Control": "public, max-age=2592000, immutable", // 30 hari
+        "Content-Disposition": `inline; filename="${slugify(row.name || "team")}.webp"`,
+      });
+      res.send(row.image);
+    } catch (err) {
+      console.error("GET team image error:", err);
+      res.status(500).send("Error");
+    }
+  });
+
   // Dynamic Product schema (ItemList of Products) untuk inject di Catalog page
   app.get("/api/seo/products-schema", async (_req, res) => {
     try {
@@ -1796,14 +1820,24 @@ async function startServer() {
          LEFT JOIN users u ON oa.initiated_by_id = u.id
          ORDER BY oa.created_at DESC`
       );
-      // attach items + total for each
-      const result = await Promise.all(rows.map(async (row: any) => {
-        const [items]: any = await pool.query(
-          'SELECT * FROM order_addition_items WHERE order_addition_id=?', [row.id]
-        );
+      if (rows.length === 0) return res.json({ success: true, data: [] });
+
+      // Ambil semua items dalam 1 query (hindari N+1), lalu kelompokkan per addition
+      const additionIds = rows.map((r: any) => r.id);
+      const [allItems]: any = await pool.query(
+        'SELECT * FROM order_addition_items WHERE order_addition_id IN (?)', [additionIds]
+      );
+      const itemsByAddition = new Map<number, any[]>();
+      for (const item of allItems) {
+        const list = itemsByAddition.get(item.order_addition_id) ?? [];
+        list.push(item);
+        itemsByAddition.set(item.order_addition_id, list);
+      }
+      const result = rows.map((row: any) => {
+        const items = itemsByAddition.get(row.id) ?? [];
         const total = items.reduce((s: number, i: any) => s + Number(i.subtotal), 0);
         return { ...row, items, total };
-      }));
+      });
       res.json({ success: true, data: result });
     } catch (e) {
       res.status(500).json({ success: false, message: 'Gagal mengambil data' });
