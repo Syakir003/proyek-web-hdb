@@ -431,6 +431,10 @@ async function getAdditionWithItems(additionId: number) {
 async function startServer() {
   const app = express();
 
+  // Di balik proxy Railway: percayai X-Forwarded-* agar IP klien benar
+  // & express-rate-limit tidak error (ERR_ERL_UNEXPECTED_X_FORWARDED_FOR)
+  app.set("trust proxy", 1);
+
   // Security headers
   app.use(helmet());
 
@@ -438,6 +442,11 @@ async function startServer() {
   const allowedOrigins = (process.env.ALLOWED_ORIGINS || "http://localhost:5173,http://localhost:4173")
     .split(",")
     .map(o => o.trim());
+
+  // Auto-izinkan domain publik Railway (same-origin di production)
+  if (process.env.RAILWAY_PUBLIC_DOMAIN) {
+    allowedOrigins.push(`https://${process.env.RAILWAY_PUBLIC_DOMAIN}`);
+  }
 
   const isProduction = process.env.NODE_ENV === "production";
 
@@ -453,7 +462,9 @@ async function startServer() {
         const isPrivate = /^http:\/\/(192\.168\.|172\.(1[6-9]|2\d|3[01])\.|10\.)\d+\.\d+(:\d+)?$/.test(origin);
         if (isLocal || isPrivate) return callback(null, true);
       }
-      callback(new Error("Not allowed by CORS"));
+      // Origin tak dikenal: tolak TANPA melempar error (hindari 500).
+      // Browser akan blokir baca lintas-origin; same-origin tetap jalan.
+      callback(null, false);
     },
     credentials: true,
   }));
