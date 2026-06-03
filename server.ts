@@ -380,7 +380,8 @@ const authenticateToken = (req: any, res: any, next: any) => {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) return res.status(401).json({ success: false, message: "No token" });
 
-  jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
+  // Kunci algoritma ke HS256 (cegah algorithm-confusion / token "alg:none")
+  jwt.verify(token, JWT_SECRET, { algorithms: ["HS256"] }, (err: any, user: any) => {
     if (err) return res.status(403).json({ success: false, message: "Invalid token" });
     req.user = user;
     next();
@@ -912,36 +913,62 @@ async function startServer() {
   // =========================
   app.post("/api/midtrans/snap-token", authenticateToken, async (req: any, res) => {
     try {
-      const { price, quantity, productId, productName, items, customerName, phone, address, notes } = req.body;
+      const { productId, productName, items, quantity, customerName, phone, address, notes } = req.body;
       const user = req.user;
       const orderId = `ORD-${Date.now()}`;
-      const totalPrice = Number(price);
 
+      // Daftar item dari client â€” HANYA id/qty/itemType yang dipakai.
+      // HARGA tidak pernah dipercaya dari client; selalu di-resolve dari DB
+      // (cegah price tampering: bayar produk mahal dengan harga rekayasa).
+      const cartItems: any[] = (items && Array.isArray(items) && items.length > 0)
+        ? items
+        : [{ id: productId, name: productName, quantity: quantity || 1, itemType: "product" }];
+
+      const itemDetails: any[] = [];
+      const verifiedItems: any[] = [];
+      for (const it of cartItems) {
+        const qty = Math.max(1, Math.floor(Number(it.quantity) || 1));
+        const itemType = it.itemType === "service" ? "service" : "product";
+        let unitPrice: number;
+        let name: string;
+
+        if (itemType === "service") {
+          const rawId = String(it.id ?? "");
+          // Jasa ber-tier dikirim sebagai "<serviceId>-tier-<tierId>"
+          const tier = rawId.match(/^(.+)-tier-(\d+)$/);
+          if (tier) {
+            const [, serviceId, tierId] = tier;
+            const [t]: any = await pool.query(
+              "SELECT label, price FROM service_tiers WHERE id=? AND service_id=?",
+              [tierId, serviceId],
+            );
+            if (!t.length) return res.status(400).json({ success: false, error: "Tier jasa tidak ditemukan" });
+            unitPrice = Number(t[0].price);
+            name = String(it.name || t[0].label || "Jasa").substring(0, 50);
+          } else {
+            const [s]: any = await pool.query("SELECT name, price FROM services WHERE id=?", [rawId]);
+            if (!s.length) return res.status(400).json({ success: false, error: "Jasa tidak ditemukan" });
+            unitPrice = Number(s[0].price);
+            name = String(s[0].name).substring(0, 50);
+          }
+        } else {
+          const [p]: any = await pool.query("SELECT name, price FROM products WHERE id=?", [String(it.id ?? "")]);
+          if (!p.length) return res.status(400).json({ success: false, error: "Produk tidak ditemukan" });
+          unitPrice = Number(p[0].price);
+          name = String(p[0].name).substring(0, 50);
+        }
+
+        if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+          return res.status(400).json({ success: false, error: "Harga item tidak valid" });
+        }
+        itemDetails.push({ id: String(it.id ?? "").substring(0, 50), price: Math.round(unitPrice), quantity: qty, name });
+        verifiedItems.push({ id: it.id, itemType, name, quantity: qty, price: Math.round(unitPrice) });
+      }
+
+      // gross_amount dihitung di SERVER dari harga DB, bukan dari client
+      const totalPrice = itemDetails.reduce((sum, i) => sum + i.price * i.quantity, 0);
       if (!totalPrice || totalPrice <= 0) {
         return res.status(400).json({ success: false, error: "Total harga tidak valid" });
-      }
-
-      let itemDetails: any[] = [];
-      if (items && Array.isArray(items) && items.length > 0) {
-        itemDetails = items.map((item: any) => ({
-          id: String(item.id).substring(0, 50),
-          price: Math.round(Number(item.price) || 0),
-          quantity: Number(item.quantity) || 1,
-          name: String(item.name).substring(0, 50),
-        }));
-      } else {
-        itemDetails = [{
-          id: String(productId).substring(0, 50),
-          price: Math.round(totalPrice),
-          quantity: 1,
-          name: String(productName).substring(0, 50),
-        }];
-      }
-
-      // Validasi total item harus cocok dengan gross_amount
-      const calculatedTotal = itemDetails.reduce((sum, item) => sum + item.price * item.quantity, 0);
-      if (calculatedTotal !== totalPrice) {
-        return res.status(400).json({ success: false, error: "Total harga tidak sesuai dengan item" });
       }
 
       const parameter: any = {
@@ -966,17 +993,10 @@ async function startServer() {
         [orderId, user?.id || null, customerName, phone, address, notes || null, "midtrans", totalPrice, snapToken, transaction.transaction_id],
       );
 
-      if (items && Array.isArray(items) && items.length > 0) {
-        for (const item of items) {
-          await pool.query(
-            `INSERT INTO order_items (order_id, item_type, item_id, item_name, quantity, price) VALUES (?,?,?,?,?,?)`,
-            [orderId, item.itemType || "product", item.id, item.name, item.quantity || 1, item.price],
-          );
-        }
-      } else {
+      for (const vi of verifiedItems) {
         await pool.query(
           `INSERT INTO order_items (order_id, item_type, item_id, item_name, quantity, price) VALUES (?,?,?,?,?,?)`,
-          [orderId, "product", productId, productName, quantity || 1, price],
+          [orderId, vi.itemType, vi.id, vi.name, vi.quantity, vi.price],
         );
       }
 
@@ -1173,14 +1193,16 @@ async function startServer() {
   // ORDERS â€” CREATE (legacy)
   // =========================
   app.post("/api/orders", authenticateToken, async (req: any, res) => {
-    const { price, quantity, productId, customerName, phone, address, paymentMethod } = req.body;
+    const { quantity, productId, customerName, phone, address, paymentMethod } = req.body;
     const user = req.user;
-    const qty = Number(quantity || 1);
-    const totalPrice = Number(price) * qty;
+    const qty = Math.max(1, Math.floor(Number(quantity) || 1));
 
     try {
-      const [productRows]: any = await pool.query("SELECT name FROM products WHERE id=?", [productId]);
+      // Harga diambil dari DB (jangan percaya harga dari client)
+      const [productRows]: any = await pool.query("SELECT name, price FROM products WHERE id=?", [productId]);
       if (!productRows.length) return res.status(404).json({ success: false, error: "Produk tidak ditemukan" });
+      const unitPrice = Number(productRows[0].price) || 0;
+      const totalPrice = unitPrice * qty;
 
       const orderId = `ORD-${Date.now()}`;
       await pool.query(
@@ -1189,7 +1211,7 @@ async function startServer() {
       );
       await pool.query(
         `INSERT INTO order_items (order_id, item_type, item_id, item_name, quantity, price) VALUES (?,?,?,?,?,?)`,
-        [orderId, "product", productId, productRows[0].name, qty, price],
+        [orderId, "product", productId, productRows[0].name, qty, unitPrice],
       );
       res.json({ success: true, orderId });
     } catch {
@@ -1607,9 +1629,17 @@ async function startServer() {
     if (!file) return res.status(400).json({ success: false, error: "Tidak ada foto yang diunggah" });
     if (!["before", "after"].includes(type)) return res.status(400).json({ success: false, error: "Tipe foto tidak valid" });
     try {
+      // Cegah IDOR: teknisi hanya boleh upload ke order miliknya (admin bebas)
+      const [ownRows]: any = await pool.query("SELECT teknisi_id FROM orders WHERE id=?", [req.params.id]);
+      if (!ownRows.length) return res.status(404).json({ success: false, error: "Order tidak ditemukan" });
+      if (req.user.role !== "admin" && String(ownRows[0].teknisi_id) !== String(req.user.id)) {
+        return res.status(403).json({ success: false, error: "Order ini bukan milik Anda" });
+      }
+      // Re-encode via sharp (strip metadata + buang payload berbahaya) sebelum simpan
+      const optimized = await optimizeImage(file.buffer);
       await pool.query(
         "INSERT INTO order_photos (order_id, photo_type, image, mime_type) VALUES (?,?,?,?)",
-        [req.params.id, type, file.buffer, file.mimetype],
+        [req.params.id, type, optimized || file.buffer, optimized ? "image/webp" : file.mimetype],
       );
       res.json({ success: true });
     } catch {
@@ -1912,10 +1942,18 @@ async function startServer() {
       await conn.beginTransaction();
 
       // Pastikan order ada
-      const [orderRows]: any = await conn.query('SELECT id FROM orders WHERE id=?', [orderId]);
+      const [orderRows]: any = await conn.query('SELECT id, user_id, teknisi_id FROM orders WHERE id=?', [orderId]);
       if (!orderRows.length) {
         await conn.rollback();
         return res.status(404).json({ success: false, message: 'Order tidak ditemukan' });
+      }
+      // Cegah IDOR: hanya admin, teknisi yang ditugaskan, atau pemilik order
+      const ord = orderRows[0];
+      const isOwner = ord.user_id != null && String(ord.user_id) === String(req.user.id);
+      const isAssignedTeknisi = req.user.role === 'teknisi' && String(ord.teknisi_id) === String(req.user.id);
+      if (req.user.role !== 'admin' && !isAssignedTeknisi && !isOwner) {
+        await conn.rollback();
+        return res.status(403).json({ success: false, message: 'Tidak diizinkan menambah item ke order ini' });
       }
 
       // Resolve setiap item â€” ambil nama & harga dari katalog/services
