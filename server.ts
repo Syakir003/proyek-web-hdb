@@ -1,4 +1,4 @@
-import express from "express";
+﻿import express from "express";
 import cors from "cors";
 import path from "path";
 import dotenv from "dotenv";
@@ -16,17 +16,17 @@ import { fileURLToPath } from "url";
 
 dotenv.config();
 
-// ESM tidak punya __dirname bawaan — buat manual dari import.meta.url
+// ESM tidak punya __dirname bawaan â€” buat manual dari import.meta.url
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // =========================
-// IMAGE PIPELINE — auto-WebP + resize + compress
+// IMAGE PIPELINE â€” auto-WebP + resize + compress
 // =========================
 /**
  * Convert any uploaded image buffer to optimized WebP.
  * - Resize: max 1920px width (preserve aspect)
  * - Quality: 82 (sweet spot)
- * - Strip metadata (EXIF, GPS, etc) — privacy + smaller size
+ * - Strip metadata (EXIF, GPS, etc) â€” privacy + smaller size
  * - Output: image/webp buffer
  */
 async function optimizeImage(buffer: Buffer | undefined | null): Promise<Buffer | null> {
@@ -45,7 +45,7 @@ async function optimizeImage(buffer: Buffer | undefined | null): Promise<Buffer 
 
 /**
  * Generate slug-friendly alt text dari nama produk.
- * Cth: "Daikin 1PK Inverter FTKQ25" → "AC Daikin 1PK Inverter FTKQ25 - jual AC Mojokerto HDB Airconds"
+ * Cth: "Daikin 1PK Inverter FTKQ25" â†’ "AC Daikin 1PK Inverter FTKQ25 - jual AC Mojokerto HDB Airconds"
  */
 function generateProductAlt(name: string, brand?: string, type?: string, capacity?: string): string {
   const parts = [name, brand, type, capacity].filter(Boolean).join(" ");
@@ -82,12 +82,12 @@ function validateAdditionItems(items: any): string | null {
 }
 
 // =========================
-// FAIL FAST — env wajib ada
+// FAIL FAST â€” env wajib ada
 // =========================
 const REQUIRED_ENV = ["JWT_SECRET", "DB_HOST", "DB_USER", "DB_NAME"];
 for (const key of REQUIRED_ENV) {
   if (!process.env[key]) {
-    console.error(`❌ Missing required env variable: ${key}`);
+    console.error(`âŒ Missing required env variable: ${key}`);
     process.exit(1);
   }
 }
@@ -99,11 +99,11 @@ const IS_PRODUCTION = process.env.NODE_ENV === "production";
 // Guard tambahan untuk production: tolak startup bila konfigurasi rawan
 if (IS_PRODUCTION) {
   if (!process.env.DB_PASSWORD) {
-    console.error("❌ DB_PASSWORD wajib diisi di environment production");
+    console.error("âŒ DB_PASSWORD wajib diisi di environment production");
     process.exit(1);
   }
   if (JWT_SECRET.length < 32) {
-    console.error("❌ JWT_SECRET terlalu lemah untuk production (min. 32 karakter acak). " +
+    console.error("âŒ JWT_SECRET terlalu lemah untuk production (min. 32 karakter acak). " +
       "Generate dengan: node -e \"console.log(require('crypto').randomBytes(48).toString('hex'))\"");
     process.exit(1);
   }
@@ -117,14 +117,14 @@ const MIDTRANS_SERVER_KEY = process.env.MIDTRANS_SERVER_KEY || "";
 const MIDTRANS_CLIENT_KEY = process.env.MIDTRANS_CLIENT_KEY || "";
 // Hindari mencetak detail diagnostik key di production (membantu attacker memvalidasi key curian)
 if (!IS_PRODUCTION) {
-  console.log("🔑 SERVER KEY len:", MIDTRANS_SERVER_KEY.length, "| last char code:", MIDTRANS_SERVER_KEY.charCodeAt(MIDTRANS_SERVER_KEY.length - 1));
-  console.log("🔑 CLIENT KEY len:", MIDTRANS_CLIENT_KEY.length, "| last char code:", MIDTRANS_CLIENT_KEY.charCodeAt(MIDTRANS_CLIENT_KEY.length - 1));
+  console.log("ðŸ”‘ SERVER KEY len:", MIDTRANS_SERVER_KEY.length, "| last char code:", MIDTRANS_SERVER_KEY.charCodeAt(MIDTRANS_SERVER_KEY.length - 1));
+  console.log("ðŸ”‘ CLIENT KEY len:", MIDTRANS_CLIENT_KEY.length, "| last char code:", MIDTRANS_CLIENT_KEY.charCodeAt(MIDTRANS_CLIENT_KEY.length - 1));
 }
 
 // Validation: cek konfigurasi Midtrans (warning only, tidak crash)
 (function validateMidtransConfig() {
   if (!MIDTRANS_SERVER_KEY || !MIDTRANS_CLIENT_KEY) {
-    console.warn("⚠️  WARNING: MIDTRANS_SERVER_KEY atau MIDTRANS_CLIENT_KEY belum diisi di .env");
+    console.warn("âš ï¸  WARNING: MIDTRANS_SERVER_KEY atau MIDTRANS_CLIENT_KEY belum diisi di .env");
     console.warn("    Pembayaran TIDAK akan berfungsi sampai key diisi.");
     return;
   }
@@ -140,21 +140,21 @@ if (!IS_PRODUCTION) {
   const clientEnv = clientIsSandbox ? "sandbox" : clientIsProduction ? "production" : "unknown";
 
   if (serverEnv !== "unknown" && clientEnv !== "unknown" && serverEnv !== clientEnv) {
-    console.warn("⚠️  WARNING: Server key dan Client key terdeteksi beda environment!");
+    console.warn("âš ï¸  WARNING: Server key dan Client key terdeteksi beda environment!");
     console.warn(`    Server key: ${serverEnv} (${MIDTRANS_SERVER_KEY.substring(0, 20)}...)`);
     console.warn(`    Client key: ${clientEnv} (${MIDTRANS_CLIENT_KEY.substring(0, 20)}...)`);
   }
 
   // Hanya warn jika prefix SB- jelas menandakan sandbox tapi flag production=true, atau sebaliknya
   if (MIDTRANS_IS_PRODUCTION && serverIsSandbox) {
-    console.warn("⚠️  WARNING: MIDTRANS_IS_PRODUCTION=true tapi key berawalan SB- (sandbox).");
+    console.warn("âš ï¸  WARNING: MIDTRANS_IS_PRODUCTION=true tapi key berawalan SB- (sandbox).");
   }
   if (!MIDTRANS_IS_PRODUCTION && serverIsProduction) {
-    console.warn(`⚠️  WARNING: MIDTRANS_IS_PRODUCTION=false dengan key berawalan Mid-server- (production-style).`);
+    console.warn(`âš ï¸  WARNING: MIDTRANS_IS_PRODUCTION=false dengan key berawalan Mid-server- (production-style).`);
     console.warn("    Jika ini akun sandbox tanpa prefix SB-, abaikan pesan ini.");
   }
 
-  console.log(`✅ Midtrans configured: ${MIDTRANS_IS_PRODUCTION ? "🔴 PRODUCTION (real money!)" : "🟡 SANDBOX (test mode)"}`);
+  console.log(`âœ… Midtrans configured: ${MIDTRANS_IS_PRODUCTION ? "ðŸ”´ PRODUCTION (real money!)" : "ðŸŸ¡ SANDBOX (test mode)"}`);
 })();
 
 const snap = new midtransClient.Snap({
@@ -181,7 +181,7 @@ const pool = mysql.createPool({
 // =========================
 async function testDB() {
   await pool.query("SELECT 1");
-  console.log("✅ Database connected");
+  console.log("âœ… Database connected");
 
   // Migration: tambah image_alt + image_mime ke products (jika belum ada)
   const [productCols]: any = await pool.query(
@@ -191,15 +191,15 @@ async function testDB() {
   const productColSet = new Set((productCols as any[]).map(r => r.COLUMN_NAME));
   if (!productColSet.has("image_alt")) {
     await pool.query("ALTER TABLE products ADD COLUMN image_alt VARCHAR(255) DEFAULT NULL");
-    console.log("  → migrated: products.image_alt added");
+    console.log("  â†’ migrated: products.image_alt added");
   }
   if (!productColSet.has("image_mime")) {
     await pool.query("ALTER TABLE products ADD COLUMN image_mime VARCHAR(50) DEFAULT 'image/webp'");
-    console.log("  → migrated: products.image_mime added");
+    console.log("  â†’ migrated: products.image_mime added");
   }
   if (!productColSet.has("slug")) {
     await pool.query("ALTER TABLE products ADD COLUMN slug VARCHAR(200) DEFAULT NULL, ADD INDEX idx_slug (slug)");
-    console.log("  → migrated: products.slug added");
+    console.log("  â†’ migrated: products.slug added");
   }
 
   // Migration: tambah image_mime ke team
@@ -210,7 +210,7 @@ async function testDB() {
   const teamColSet = new Set((teamCols as any[]).map(r => r.COLUMN_NAME));
   if (teamColSet.size > 0 && !teamColSet.has("image_mime")) {
     await pool.query("ALTER TABLE team ADD COLUMN image_mime VARCHAR(50) DEFAULT 'image/webp'");
-    console.log("  → migrated: team.image_mime added");
+    console.log("  â†’ migrated: team.image_mime added");
   }
 
   const [cols]: any = await pool.query(
@@ -272,7 +272,7 @@ async function testDB() {
     )
   `);
 
-  // ── ORDER ADDITIONS ─────────────────────────────────────────────────
+  // â”€â”€ ORDER ADDITIONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   await pool.query(`
     CREATE TABLE IF NOT EXISTS material_catalog (
       id         INT AUTO_INCREMENT PRIMARY KEY,
@@ -334,15 +334,15 @@ async function testDB() {
   const ordInvColSet = new Set((ordInvCols as any[]).map((r: any) => r.COLUMN_NAME));
   if (!ordInvColSet.has('invoice_number')) {
     await pool.query("ALTER TABLE orders ADD COLUMN invoice_number VARCHAR(30) DEFAULT NULL");
-    console.log("  → migrated: orders.invoice_number added");
+    console.log("  â†’ migrated: orders.invoice_number added");
   }
   if (!ordInvColSet.has('invoice_token')) {
     await pool.query("ALTER TABLE orders ADD COLUMN invoice_token VARCHAR(64) DEFAULT NULL");
-    console.log("  → migrated: orders.invoice_token added");
+    console.log("  â†’ migrated: orders.invoice_token added");
   }
   if (!ordInvColSet.has('invoice_sent_at')) {
     await pool.query("ALTER TABLE orders ADD COLUMN invoice_sent_at TIMESTAMP NULL DEFAULT NULL");
-    console.log("  → migrated: orders.invoice_sent_at added");
+    console.log("  â†’ migrated: orders.invoice_sent_at added");
   }
 
   // Migration: simpan midtrans_order_id pada order_additions agar webhook
@@ -355,12 +355,12 @@ async function testDB() {
   if (!oaColSet.has('midtrans_order_id')) {
     await pool.query("ALTER TABLE order_additions ADD COLUMN midtrans_order_id VARCHAR(100) DEFAULT NULL");
     await pool.query("ALTER TABLE order_additions ADD INDEX idx_oa_midtrans (midtrans_order_id)");
-    console.log("  → migrated: order_additions.midtrans_order_id added");
+    console.log("  â†’ migrated: order_additions.midtrans_order_id added");
   }
 }
 
 // =========================
-// MULTER — batas 5 MB, hanya gambar
+// MULTER â€” batas 5 MB, hanya gambar
 // =========================
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -402,7 +402,7 @@ const requireTeknisi = (req: any, res: any, next: any) => {
 };
 
 // =========================
-// HELPER — ORDER ADDITIONS
+// HELPER â€” ORDER ADDITIONS
 // =========================
 async function getAdditionWithItems(additionId: number) {
   const [rows]: any = await pool.query(
@@ -435,7 +435,7 @@ async function startServer() {
   // & express-rate-limit tidak error (ERR_ERL_UNEXPECTED_X_FORWARDED_FOR)
   app.set("trust proxy", 1);
 
-  // Security headers — izinkan gambar dari https eksternal (avatar dll),
+  // Security headers â€” izinkan gambar dari https eksternal (avatar dll),
   // proteksi helmet lain tetap default (script tetap 'self')
   app.use(helmet({
     contentSecurityPolicy: {
@@ -446,7 +446,7 @@ async function startServer() {
     },
   }));
 
-  // CORS — izinkan origin dari env, fallback localhost dev
+  // CORS â€” izinkan origin dari env, fallback localhost dev
   const allowedOrigins = (process.env.ALLOWED_ORIGINS || "http://localhost:5173,http://localhost:4173")
     .split(",")
     .map(o => o.trim());
@@ -477,7 +477,7 @@ async function startServer() {
     credentials: true,
   }));
 
-  // Body size limit — cegah payload serangan besar
+  // Body size limit â€” cegah payload serangan besar
   app.use(express.json({ limit: "1mb" }));
 
   // Rate limit untuk endpoint autentikasi (maks 20 percobaan / 15 menit per IP)
@@ -500,7 +500,7 @@ async function startServer() {
   app.use("/api/", apiLimiter);
 
   // Rate limit ketat untuk endpoint pembayaran publik milik customer (tanpa auth).
-  // Maks 15 percobaan / 15 menit per IP — cegah abuse & enumeration token.
+  // Maks 15 percobaan / 15 menit per IP â€” cegah abuse & enumeration token.
   const customerPaymentLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 15,
@@ -521,7 +521,7 @@ async function startServer() {
       return res.status(400).json({ success: false, error: "Semua field wajib diisi" });
     }
     if (typeof username !== "string" || username.length < 3 || username.length > 50) {
-      return res.status(400).json({ success: false, error: "Username harus 3–50 karakter" });
+      return res.status(400).json({ success: false, error: "Username harus 3â€“50 karakter" });
     }
     if (!/^[a-zA-Z0-9_]+$/.test(username)) {
       return res.status(400).json({ success: false, error: "Username hanya boleh huruf, angka, dan underscore" });
@@ -586,7 +586,7 @@ async function startServer() {
   });
 
   // =========================
-  // PUBLIC — PRODUCTS & SERVICES
+  // PUBLIC â€” PRODUCTS & SERVICES
   // =========================
   app.get("/api/services", async (_req, res) => {
     try {
@@ -622,7 +622,7 @@ async function startServer() {
     }
   });
 
-  // GET /api/materials — public, hanya item aktif
+  // GET /api/materials â€” public, hanya item aktif
   app.get("/api/materials", async (_req, res) => {
     try {
       const [rows] = await pool.query(
@@ -638,7 +638,7 @@ async function startServer() {
   });
 
   // =========================
-  // PUBLIC — TEAM
+  // PUBLIC â€” TEAM
   // =========================
   app.get("/api/team", async (_req, res) => {
     try {
@@ -906,7 +906,7 @@ async function startServer() {
   });
 
   // =========================
-  // MIDTRANS — SNAP TOKEN
+  // MIDTRANS â€” SNAP TOKEN
   // =========================
   app.post("/api/midtrans/snap-token", authenticateToken, async (req: any, res) => {
     try {
@@ -980,7 +980,7 @@ async function startServer() {
 
       res.json({ success: true, orderId, snapToken });
     } catch (err: any) {
-      console.error("❌ Error creating snap token:", err?.message);
+      console.error("âŒ Error creating snap token:", err?.message);
       res.status(500).json({ success: false, error: "Gagal membuat token pembayaran" });
     }
   });
@@ -1065,7 +1065,7 @@ async function startServer() {
   }
 
   // =========================
-  // MIDTRANS — WEBHOOK
+  // MIDTRANS â€” WEBHOOK
   // =========================
   app.post("/api/midtrans/webhook", async (req, res) => {
     try {
@@ -1116,7 +1116,7 @@ async function startServer() {
   });
 
   // =========================
-  // MIDTRANS — PAYMENT CALLBACK
+  // MIDTRANS â€” PAYMENT CALLBACK
   // =========================
   app.post("/api/midtrans/payment-callback", authenticateToken, async (req: any, res) => {
     try {
@@ -1132,7 +1132,7 @@ async function startServer() {
   });
 
   // =========================
-  // MIDTRANS — CEK STATUS
+  // MIDTRANS â€” CEK STATUS
   // =========================
   app.post("/api/midtrans/check-status", authenticateToken, async (req: any, res) => {
     try {
@@ -1168,7 +1168,7 @@ async function startServer() {
   });
 
   // =========================
-  // ORDERS — CREATE (legacy)
+  // ORDERS â€” CREATE (legacy)
   // =========================
   app.post("/api/orders", authenticateToken, async (req: any, res) => {
     const { price, quantity, productId, customerName, phone, address, paymentMethod } = req.body;
@@ -1669,11 +1669,11 @@ async function startServer() {
   }
 
   // =========================
-  // SEO — DYNAMIC SITEMAP & SCHEMA
+  // SEO â€” DYNAMIC SITEMAP & SCHEMA
   // =========================
-  const SITE_URL = process.env.SITE_URL || "https://hdbairconds.id";
+  const SITE_URL = process.env.SITE_URL || "https://www.hdbairconds.id";
 
-  // Dynamic sitemap.xml — auto-include semua produk + halaman statis
+  // Dynamic sitemap.xml â€” auto-include semua produk + halaman statis
   app.get("/sitemap.xml", async (_req, res) => {
     try {
       const today = new Date().toISOString().split("T")[0];
@@ -1710,7 +1710,7 @@ async function startServer() {
         xml += `  </url>\n`;
       }
 
-      // Setiap produk → URL produk + image sitemap entry
+      // Setiap produk â†’ URL produk + image sitemap entry
       for (const p of products as any[]) {
         const productSlug = p.slug || p.id;
         const lastMod = p.last_mod ? new Date(p.last_mod).toISOString().split("T")[0] : today;
@@ -1739,7 +1739,7 @@ async function startServer() {
     }
   });
 
-  // Image endpoint by product ID — supaya bisa di-link langsung dari sitemap & dishare
+  // Image endpoint by product ID â€” supaya bisa di-link langsung dari sitemap & dishare
   app.get("/api/products/:id/image", async (req, res) => {
     try {
       const [rows]: any = await pool.query(
@@ -1763,7 +1763,7 @@ async function startServer() {
     }
   });
 
-  // Image endpoint by team member ID — listing tim memakai URL ini, bukan base64
+  // Image endpoint by team member ID â€” listing tim memakai URL ini, bukan base64
   app.get("/api/team/:id/image", async (req, res) => {
     try {
       const [rows]: any = await pool.query(
@@ -1834,9 +1834,9 @@ async function startServer() {
     }
   });
 
-  // ── MATERIAL CATALOG ────────────────────────────────────────────────
+  // â”€â”€ MATERIAL CATALOG â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  // GET /api/material-catalog — semua item aktif (admin & teknisi)
+  // GET /api/material-catalog â€” semua item aktif (admin & teknisi)
   app.get('/api/material-catalog', authenticateToken, async (req: any, res) => {
     try {
       const isAdmin = req.user.role === 'admin';
@@ -1851,7 +1851,7 @@ async function startServer() {
     }
   });
 
-  // POST /api/material-catalog — tambah item (admin)
+  // POST /api/material-catalog â€” tambah item (admin)
   app.post('/api/material-catalog', authenticateToken, requireAdmin, async (req: any, res) => {
     const { name, unit, price, category } = req.body;
     if (!name || !unit || !price) {
@@ -1868,7 +1868,7 @@ async function startServer() {
     }
   });
 
-  // PUT /api/material-catalog/:id — edit item (admin)
+  // PUT /api/material-catalog/:id â€” edit item (admin)
   app.put('/api/material-catalog/:id', authenticateToken, requireAdmin, async (req: any, res) => {
     const { name, unit, price, category } = req.body;
     try {
@@ -1882,7 +1882,7 @@ async function startServer() {
     }
   });
 
-  // PATCH /api/material-catalog/:id/toggle — aktif/nonaktif (admin)
+  // PATCH /api/material-catalog/:id/toggle â€” aktif/nonaktif (admin)
   app.patch('/api/material-catalog/:id/toggle', authenticateToken, requireAdmin, async (req: any, res) => {
     try {
       await pool.query(
@@ -1895,9 +1895,9 @@ async function startServer() {
     }
   });
 
-  // ── ORDER ADDITIONS ──────────────────────────────────────────────────
+  // â”€â”€ ORDER ADDITIONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  // POST /api/orders/:orderId/additions — buat pengajuan (teknisi atau customer)
+  // POST /api/orders/:orderId/additions â€” buat pengajuan (teknisi atau customer)
   app.post('/api/orders/:orderId/additions', authenticateToken, async (req: any, res) => {
     const { orderId } = req.params;
     const { items } = req.body as { items: Array<{ item_type: 'material'|'service'; ref_id: string; quantity: number }> };
@@ -1916,7 +1916,7 @@ async function startServer() {
         return res.status(404).json({ success: false, message: 'Order tidak ditemukan' });
       }
 
-      // Resolve setiap item — ambil nama & harga dari katalog/services
+      // Resolve setiap item â€” ambil nama & harga dari katalog/services
       const resolvedItems = [];
       for (const item of items) {
         if (item.item_type === 'material') {
@@ -1981,7 +1981,7 @@ async function startServer() {
     }
   });
 
-  // GET /api/order-additions — list semua (admin)
+  // GET /api/order-additions â€” list semua (admin)
   app.get('/api/order-additions', authenticateToken, requireAdmin, async (req: any, res) => {
     try {
       const [rows]: any = await pool.query(
@@ -2016,7 +2016,7 @@ async function startServer() {
     }
   });
 
-  // PATCH /api/order-additions/:id/admin-review — admin approve/reject
+  // PATCH /api/order-additions/:id/admin-review â€” admin approve/reject
   app.patch('/api/order-additions/:id/admin-review', authenticateToken, requireAdmin, async (req: any, res) => {
     const { action, admin_notes } = req.body as { action: 'approve'|'reject'; admin_notes?: string };
     if (!['approve','reject'].includes(action)) {
@@ -2067,7 +2067,7 @@ async function startServer() {
     }
   });
 
-  // GET /api/order-additions/token/:token — lihat via link publik (tanpa auth)
+  // GET /api/order-additions/token/:token â€” lihat via link publik (tanpa auth)
   app.get('/api/order-additions/token/:token', async (req, res) => {
     try {
       const [rows]: any = await pool.query(
@@ -2091,7 +2091,7 @@ async function startServer() {
     }
   });
 
-  // PATCH /api/order-additions/:id/customer-response — customer approve/reject
+  // PATCH /api/order-additions/:id/customer-response â€” customer approve/reject
   app.patch('/api/order-additions/:id/customer-response', customerPaymentLimiter, async (req, res) => {
     const { token, action, payment_method } = req.body as {
       token: string; action: 'approve'|'reject'; payment_method?: 'cash'|'online'
@@ -2124,18 +2124,18 @@ async function startServer() {
            payment_status='pending', updated_at=NOW() WHERE id=?`,
           [req.params.id]
         );
-        // Tunai langsung memenuhi syarat invoice → generate nomor invoice sekarang
+        // Tunai langsung memenuhi syarat invoice â†’ generate nomor invoice sekarang
         const invoiceNumber = await ensureAdditionInvoice(req.params.id);
         return res.json({ success: true, status: 'customer_approved', payment_method: 'cash', invoiceToken: token, invoice_number: invoiceNumber });
       }
-      // Online payment — buat Midtrans snap token
+      // Online payment â€” buat Midtrans snap token
       res.json({ success: true, status: 'customer_approved', payment_method: 'online', needsPayment: true });
     } catch (e) {
       res.status(500).json({ success: false, message: 'Gagal memproses respon' });
     }
   });
 
-  // POST /api/order-additions/:id/payment — inisiasi bayar online
+  // POST /api/order-additions/:id/payment â€” inisiasi bayar online
   app.post('/api/order-additions/:id/payment', customerPaymentLimiter, async (req, res) => {
     const { token } = req.body as { token: string };
     try {
@@ -2178,7 +2178,7 @@ async function startServer() {
     }
   });
 
-  // POST /api/order-additions/:id/confirm-payment — verifikasi status Midtrans & tandai paid
+  // POST /api/order-additions/:id/confirm-payment â€” verifikasi status Midtrans & tandai paid
   app.post('/api/order-additions/:id/confirm-payment', customerPaymentLimiter, async (req, res) => {
     const { token, midtransOrderId } = req.body as { token: string; midtransOrderId?: string };
     try {
@@ -2189,7 +2189,7 @@ async function startServer() {
       if (!rows.length) return res.status(404).json({ success: false, message: 'Data tidak ditemukan' });
       const add = rows[0];
 
-      // Sudah paid (mis. webhook lebih dulu masuk) → cukup pastikan invoice ada
+      // Sudah paid (mis. webhook lebih dulu masuk) â†’ cukup pastikan invoice ada
       if (add.status === 'paid') {
         const inv = await ensureAdditionInvoice(add.id);
         return res.json({ success: true, status: 'paid', invoiceToken: token, invoice_number: inv });
@@ -2221,7 +2221,7 @@ async function startServer() {
     }
   });
 
-  // GET /api/order-additions/my — milik teknisi yg login
+  // GET /api/order-additions/my â€” milik teknisi yg login
   app.get('/api/order-additions/my', authenticateToken, requireTeknisi, async (req: any, res) => {
     try {
       const [rows]: any = await pool.query(
@@ -2240,7 +2240,7 @@ async function startServer() {
     }
   });
 
-  // PATCH /api/order-additions/:id/revise — revisi item
+  // PATCH /api/order-additions/:id/revise â€” revisi item
   app.patch('/api/order-additions/:id/revise', authenticateToken, requireTeknisi, async (req: any, res) => {
     const { items } = req.body as { items: Array<{ item_type: 'material'|'service'; ref_id: string; quantity: number }> };
     const itemsError = validateAdditionItems(items);
@@ -2289,7 +2289,7 @@ async function startServer() {
     }
   });
 
-  // PATCH /api/order-additions/:id/escalate — eskalasi ke admin
+  // PATCH /api/order-additions/:id/escalate â€” eskalasi ke admin
   app.patch('/api/order-additions/:id/escalate', authenticateToken, requireTeknisi, async (req: any, res) => {
     try {
       await pool.query(
@@ -2302,7 +2302,7 @@ async function startServer() {
     }
   });
 
-  // PATCH /api/order-additions/:id/cancel — batalkan
+  // PATCH /api/order-additions/:id/cancel â€” batalkan
   app.patch('/api/order-additions/:id/cancel', authenticateToken, requireTeknisi, async (req: any, res) => {
     try {
       await pool.query(
@@ -2315,7 +2315,7 @@ async function startServer() {
     }
   });
 
-  // GET /api/order-additions/token/:token/invoice-data — data invoice publik
+  // GET /api/order-additions/token/:token/invoice-data â€” data invoice publik
   app.get('/api/order-additions/token/:token/invoice-data', async (req, res) => {
     try {
       const [rows]: any = await pool.query(
@@ -2366,7 +2366,7 @@ async function startServer() {
     }
   });
 
-  // POST /api/order-additions/:id/send-invoice — admin generate + kirim invoice
+  // POST /api/order-additions/:id/send-invoice â€” admin generate + kirim invoice
   app.post('/api/order-additions/:id/send-invoice', authenticateToken, requireAdmin, async (req: any, res) => {
     try {
       const [rows]: any = await pool.query(
@@ -2398,7 +2398,7 @@ async function startServer() {
     }
   });
 
-  // POST /api/orders/:orderId/send-invoice — admin: generate invoice untuk order
+  // POST /api/orders/:orderId/send-invoice â€” admin: generate invoice untuk order
   app.post('/api/orders/:orderId/send-invoice', authenticateToken, requireAdmin, async (req: any, res) => {
     try {
       const [rows]: any = await pool.query(
@@ -2451,7 +2451,7 @@ async function startServer() {
     }
   });
 
-  // GET /api/order-invoice/:token — publik: data invoice order lengkap
+  // GET /api/order-invoice/:token â€” publik: data invoice order lengkap
   app.get('/api/order-invoice/:token', async (req, res) => {
     try {
       const [rows]: any = await pool.query(
@@ -2513,7 +2513,7 @@ async function startServer() {
   };
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`🚀 Server running on:`);
+    console.log(`ðŸš€ Server running on:`);
     console.log(`   Local:   http://localhost:${PORT}`);
     console.log(`   Network: http://${getLocalIp()}:${PORT}`);
   });
