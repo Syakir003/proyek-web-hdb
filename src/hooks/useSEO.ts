@@ -9,7 +9,7 @@ interface SEOMeta {
   breadcrumb?: { name: string; url: string }[];
 }
 
-const BASE_URL = "https://www.hdbaircons.com";
+const BASE_URL = "https://hdbairconds.id";
 const DEFAULT_OG_IMAGE = `${BASE_URL}/images/og-image.jpg`;
 
 const HOME_BREADCRUMB = [

@@ -7,4 +7,4 @@ Disallow: /teknisi
 Disallow: /api/
 
 # Sitemap
-Sitemap: https://www.hdbaircons.com/sitemap.xml
+Sitemap: https://hdbairconds.id/sitemap.xml

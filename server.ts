@@ -1671,7 +1671,7 @@ async function startServer() {
   // =========================
   // SEO — DYNAMIC SITEMAP & SCHEMA
   // =========================
-  const SITE_URL = process.env.SITE_URL || "https://www.hdbaircons.com";
+  const SITE_URL = process.env.SITE_URL || "https://hdbairconds.id";
 
   // Dynamic sitemap.xml — auto-include semua produk + halaman statis
   app.get("/sitemap.xml", async (_req, res) => {
