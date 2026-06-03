@@ -435,8 +435,16 @@ async function startServer() {
   // & express-rate-limit tidak error (ERR_ERL_UNEXPECTED_X_FORWARDED_FOR)
   app.set("trust proxy", 1);
 
-  // Security headers
-  app.use(helmet());
+  // Security headers — izinkan gambar dari https eksternal (avatar dll),
+  // proteksi helmet lain tetap default (script tetap 'self')
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+        "img-src": ["'self'", "data:", "https:"],
+      },
+    },
+  }));
 
   // CORS — izinkan origin dari env, fallback localhost dev
   const allowedOrigins = (process.env.ALLOWED_ORIGINS || "http://localhost:5173,http://localhost:4173")

@@ -193,66 +193,61 @@ const whyUsReasons = [
 const brands = [
   {
     name: "Samsung",
-    logoUrl: "https://cdn.simpleicons.org/samsung",
+    logoUrl: "/images/brands/samsung.svg",
     abbr: "S",
     color: "from-blue-600 to-blue-800",
   },
   {
     name: "Daikin",
-    logoUrl:
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/DAIKIN_logo.svg/330px-DAIKIN_logo.svg.png",
+    logoUrl: "/images/brands/daikin.png",
     abbr: "DAIKIN",
     color: "from-sky-400 to-sky-600",
   },
   {
     name: "Panasonic",
-    logoUrl: "https://cdn.simpleicons.org/panasonic",
+    logoUrl: "/images/brands/panasonic.svg",
     abbr: "P",
     color: "from-indigo-600 to-indigo-800",
   },
   {
     name: "Mitsubishi",
-    logoUrl: "https://cdn.simpleicons.org/mitsubishi",
+    logoUrl: "/images/brands/mitsubishi.svg",
     abbr: "M",
     color: "from-red-600 to-red-800",
   },
   {
     name: "LG",
-    logoUrl: "https://cdn.simpleicons.org/lg",
+    logoUrl: "/images/brands/lg.svg",
     abbr: "LG",
     color: "from-rose-600 to-rose-800",
   },
   {
     name: "Sharp",
-    logoUrl:
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Sharp-Logo.svg/330px-Sharp-Logo.svg.png",
+    logoUrl: "/images/brands/sharp.svg",
     abbr: "Sh",
     color: "from-teal-500 to-teal-700",
   },
   {
     name: "Gree",
-    logoUrl:
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/0/01/Gree_electric_appliances_logo.svg/960px-Gree_electric_appliances_logo.svg.png",
+    logoUrl: "/images/brands/gree.png",
     abbr: "GREE",
     color: "from-green-600 to-green-800",
   },
   {
     name: "Midea",
-    logoUrl:
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bf/Midea.svg/330px-Midea.svg.png",
+    logoUrl: "/images/brands/midea.png",
     abbr: "midea",
     color: "from-blue-500 to-blue-700",
   },
   {
     name: "Haier",
-    logoUrl:
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/6/64/Haier_logo.svg/330px-Haier_logo.svg.png",
+    logoUrl: "/images/brands/haier.png",
     abbr: "Haier",
     color: "from-sky-600 to-blue-700",
   },
   {
     name: "Toshiba",
-    logoUrl: "https://cdn.simpleicons.org/toshiba",
+    logoUrl: "/images/brands/toshiba.svg",
     abbr: "T",
     color: "from-red-500 to-red-700",
   },
