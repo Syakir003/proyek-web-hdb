@@ -442,6 +442,8 @@ async function startServer() {
       directives: {
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
         "img-src": ["'self'", "data:", "https:"],
+        // Izinkan embed Google Maps (iframe di halaman Kontak)
+        "frame-src": ["'self'", "https://maps.google.com", "https://www.google.com"],
       },
     },
   }));
