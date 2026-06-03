@@ -12,8 +12,12 @@ import crypto from "crypto";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import sharp from "sharp";
+import { fileURLToPath } from "url";
 
 dotenv.config();
+
+// ESM tidak punya __dirname bawaan — buat manual dari import.meta.url
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // =========================
 // IMAGE PIPELINE — auto-WebP + resize + compress
