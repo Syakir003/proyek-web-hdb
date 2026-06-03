@@ -58,6 +58,25 @@ function slugify(text: string): string {
     .replace(/-+/g, "-");
 }
 
+// Validasi daftar item penambahan order (dipakai saat create & revise).
+// Mengembalikan pesan error, atau null bila valid.
+function validateAdditionItems(items: any): string | null {
+  if (!Array.isArray(items) || items.length === 0) return 'items tidak boleh kosong';
+  for (const item of items) {
+    if (!item || (item.item_type !== 'material' && item.item_type !== 'service')) {
+      return 'item_type harus "material" atau "service"';
+    }
+    if (item.ref_id === undefined || item.ref_id === null || String(item.ref_id).trim() === '') {
+      return 'ref_id wajib diisi';
+    }
+    const qty = Number(item.quantity);
+    if (!Number.isFinite(qty) || qty <= 0 || qty > 10000) {
+      return 'quantity harus berupa angka antara 1 dan 10000';
+    }
+  }
+  return null;
+}
+
 // =========================
 // FAIL FAST — env wajib ada
 // =========================
@@ -71,6 +90,20 @@ for (const key of REQUIRED_ENV) {
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 const PORT = Number(process.env.PORT) || 5000;
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+
+// Guard tambahan untuk production: tolak startup bila konfigurasi rawan
+if (IS_PRODUCTION) {
+  if (!process.env.DB_PASSWORD) {
+    console.error("❌ DB_PASSWORD wajib diisi di environment production");
+    process.exit(1);
+  }
+  if (JWT_SECRET.length < 32) {
+    console.error("❌ JWT_SECRET terlalu lemah untuk production (min. 32 karakter acak). " +
+      "Generate dengan: node -e \"console.log(require('crypto').randomBytes(48).toString('hex'))\"");
+    process.exit(1);
+  }
+}
 
 // =========================
 // MIDTRANS SETUP + VALIDATION
@@ -78,8 +111,11 @@ const PORT = Number(process.env.PORT) || 5000;
 const MIDTRANS_IS_PRODUCTION = process.env.MIDTRANS_IS_PRODUCTION === "true";
 const MIDTRANS_SERVER_KEY = process.env.MIDTRANS_SERVER_KEY || "";
 const MIDTRANS_CLIENT_KEY = process.env.MIDTRANS_CLIENT_KEY || "";
-console.log("🔑 SERVER KEY len:", MIDTRANS_SERVER_KEY.length, "| last char code:", MIDTRANS_SERVER_KEY.charCodeAt(MIDTRANS_SERVER_KEY.length - 1));
-console.log("🔑 CLIENT KEY len:", MIDTRANS_CLIENT_KEY.length, "| last char code:", MIDTRANS_CLIENT_KEY.charCodeAt(MIDTRANS_CLIENT_KEY.length - 1));
+// Hindari mencetak detail diagnostik key di production (membantu attacker memvalidasi key curian)
+if (!IS_PRODUCTION) {
+  console.log("🔑 SERVER KEY len:", MIDTRANS_SERVER_KEY.length, "| last char code:", MIDTRANS_SERVER_KEY.charCodeAt(MIDTRANS_SERVER_KEY.length - 1));
+  console.log("🔑 CLIENT KEY len:", MIDTRANS_CLIENT_KEY.length, "| last char code:", MIDTRANS_CLIENT_KEY.charCodeAt(MIDTRANS_CLIENT_KEY.length - 1));
+}
 
 // Validation: cek konfigurasi Midtrans (warning only, tidak crash)
 (function validateMidtransConfig() {
@@ -303,6 +339,19 @@ async function testDB() {
     await pool.query("ALTER TABLE orders ADD COLUMN invoice_sent_at TIMESTAMP NULL DEFAULT NULL");
     console.log("  → migrated: orders.invoice_sent_at added");
   }
+
+  // Migration: simpan midtrans_order_id pada order_additions agar webhook
+  // bisa mencocokkan transaksi secara eksak (bukan parsing string yang rapuh)
+  const [oaCols]: any = await pool.query(
+    `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'order_additions'`
+  );
+  const oaColSet = new Set((oaCols as any[]).map((r: any) => r.COLUMN_NAME));
+  if (!oaColSet.has('midtrans_order_id')) {
+    await pool.query("ALTER TABLE order_additions ADD COLUMN midtrans_order_id VARCHAR(100) DEFAULT NULL");
+    await pool.query("ALTER TABLE order_additions ADD INDEX idx_oa_midtrans (midtrans_order_id)");
+    console.log("  → migrated: order_additions.midtrans_order_id added");
+  }
 }
 
 // =========================
@@ -425,6 +474,16 @@ async function startServer() {
   });
 
   app.use("/api/", apiLimiter);
+
+  // Rate limit ketat untuk endpoint pembayaran publik milik customer (tanpa auth).
+  // Maks 15 percobaan / 15 menit per IP — cegah abuse & enumeration token.
+  const customerPaymentLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 15,
+    message: { success: false, message: "Terlalu banyak percobaan, coba lagi nanti" },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
 
   await testDB();
 
@@ -927,6 +986,61 @@ async function startServer() {
   }
 
   // =========================
+  // HELPER: generate nomor invoice untuk order addition (idempotent)
+  // =========================
+  // Jalankan fn sambil memegang named-lock MySQL pada SATU koneksi khusus.
+  // GET_LOCK bersifat per-koneksi, jadi semua query dalam blok terkunci HARUS
+  // memakai conn yang sama agar lock benar-benar efektif (mencegah duplikat seq).
+  async function withInvoiceLock<T>(fn: (conn: any) => Promise<T>): Promise<T> {
+    const conn = await pool.getConnection();
+    try {
+      await conn.query("SELECT GET_LOCK('hdb_invoice_seq', 10)");
+      try {
+        return await fn(conn);
+      } finally {
+        await conn.query("SELECT RELEASE_LOCK('hdb_invoice_seq')");
+      }
+    } finally {
+      conn.release();
+    }
+  }
+
+  // Hitung nomor invoice berikutnya (gabungan orders + order_additions) untuk bulan ym.
+  // Harus dipanggil di dalam withInvoiceLock agar tidak ada race.
+  async function nextInvoiceNumber(conn: any, ym: string): Promise<string> {
+    const [c1]: any = await conn.query(
+      `SELECT COUNT(*) as cnt FROM orders WHERE invoice_number IS NOT NULL AND DATE_FORMAT(invoice_sent_at,'%Y-%m')=?`, [ym]
+    );
+    const [c2]: any = await conn.query(
+      `SELECT COUNT(*) as cnt FROM order_additions WHERE invoice_number IS NOT NULL AND DATE_FORMAT(invoice_sent_at,'%Y-%m')=?`, [ym]
+    );
+    const seq = Number(c1[0].cnt) + Number(c2[0].cnt) + 1;
+    return `INV-${ym}-${String(seq).padStart(4, '0')}`;
+  }
+
+  // =========================
+  // HELPER: generate nomor invoice untuk order addition (idempotent + lock)
+  // =========================
+  async function ensureAdditionInvoice(additionId: number | string) {
+    return withInvoiceLock(async (conn) => {
+      const [rows]: any = await conn.query(
+        'SELECT invoice_number FROM order_additions WHERE id=?', [additionId]
+      );
+      if (!rows.length) return null;
+      if (rows[0].invoice_number) return rows[0].invoice_number;
+
+      const now = new Date();
+      const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const invoiceNumber = await nextInvoiceNumber(conn, ym);
+      await conn.query(
+        `UPDATE order_additions SET invoice_number=?, invoice_sent_at=COALESCE(invoice_sent_at, NOW()), updated_at=NOW() WHERE id=?`,
+        [invoiceNumber, additionId]
+      );
+      return invoiceNumber;
+    });
+  }
+
+  // =========================
   // MIDTRANS — WEBHOOK
   // =========================
   app.post("/api/midtrans/webhook", async (req, res) => {
@@ -944,12 +1058,27 @@ async function startServer() {
 
       // Tangani payment untuk order additions (prefix ADD-)
       if (orderId.startsWith('ADD-')) {
-        const additionId = orderId.split('-')[1];
+        // Cari addition berdasarkan midtrans_order_id yang tersimpan (eksak).
+        // Fallback ke parsing prefix untuk transaksi lama yang belum punya kolom terisi.
+        let additionId: string | number | null = null;
+        const [byMid]: any = await pool.query(
+          'SELECT id FROM order_additions WHERE midtrans_order_id=?', [orderId]
+        );
+        if (byMid.length) {
+          additionId = byMid[0].id;
+        } else {
+          const parsed = orderId.split('-')[1];
+          if (/^\d+$/.test(parsed)) additionId = parsed;
+        }
+        if (additionId === null) {
+          return res.status(404).json({ success: false, error: "Addition tidak ditemukan" });
+        }
         if (['capture','settlement'].includes(notification.transaction_status)) {
           await pool.query(
             `UPDATE order_additions SET payment_status='paid', status='paid', updated_at=NOW() WHERE id=?`,
             [additionId]
           );
+          await ensureAdditionInvoice(additionId);
         }
         return res.json({ success: true });
       }
@@ -1462,8 +1591,26 @@ async function startServer() {
     }
   });
 
-  app.get("/api/orders/:id/photos", authenticateToken, async (req, res) => {
+  app.get("/api/orders/:id/photos", authenticateToken, async (req: any, res) => {
     try {
+      // Cek kepemilikan: hanya admin, teknisi yang ditugaskan, atau pemilik order
+      const [orderRows]: any = await pool.query(
+        "SELECT user_id, teknisi_id FROM orders WHERE id = ?",
+        [req.params.id],
+      );
+      if (!orderRows.length) {
+        return res.status(404).json({ success: false, error: "Order tidak ditemukan" });
+      }
+      const o = orderRows[0];
+      const u = req.user;
+      const allowed =
+        u.role === "admin" ||
+        (u.role === "teknisi" && String(o.teknisi_id) === String(u.id)) ||
+        String(o.user_id) === String(u.id);
+      if (!allowed) {
+        return res.status(403).json({ success: false, error: "Tidak diizinkan mengakses foto ini" });
+      }
+
       const [rows]: any = await pool.query(
         `SELECT id, photo_type, mime_type, TO_BASE64(image) as image_b64, created_at
          FROM order_photos WHERE order_id = ? ORDER BY created_at ASC`,
@@ -1730,8 +1877,9 @@ async function startServer() {
   app.post('/api/orders/:orderId/additions', authenticateToken, async (req: any, res) => {
     const { orderId } = req.params;
     const { items } = req.body as { items: Array<{ item_type: 'material'|'service'; ref_id: string; quantity: number }> };
-    if (!items?.length) {
-      return res.status(400).json({ success: false, message: 'items tidak boleh kosong' });
+    const itemsError = validateAdditionItems(items);
+    if (itemsError) {
+      return res.status(400).json({ success: false, message: itemsError });
     }
     const conn = await pool.getConnection();
     try {
@@ -1920,7 +2068,7 @@ async function startServer() {
   });
 
   // PATCH /api/order-additions/:id/customer-response — customer approve/reject
-  app.patch('/api/order-additions/:id/customer-response', async (req, res) => {
+  app.patch('/api/order-additions/:id/customer-response', customerPaymentLimiter, async (req, res) => {
     const { token, action, payment_method } = req.body as {
       token: string; action: 'approve'|'reject'; payment_method?: 'cash'|'online'
     };
@@ -1952,7 +2100,9 @@ async function startServer() {
            payment_status='pending', updated_at=NOW() WHERE id=?`,
           [req.params.id]
         );
-        return res.json({ success: true, status: 'customer_approved', payment_method: 'cash' });
+        // Tunai langsung memenuhi syarat invoice → generate nomor invoice sekarang
+        const invoiceNumber = await ensureAdditionInvoice(req.params.id);
+        return res.json({ success: true, status: 'customer_approved', payment_method: 'cash', invoiceToken: token, invoice_number: invoiceNumber });
       }
       // Online payment — buat Midtrans snap token
       res.json({ success: true, status: 'customer_approved', payment_method: 'online', needsPayment: true });
@@ -1962,7 +2112,7 @@ async function startServer() {
   });
 
   // POST /api/order-additions/:id/payment — inisiasi bayar online
-  app.post('/api/order-additions/:id/payment', async (req, res) => {
+  app.post('/api/order-additions/:id/payment', customerPaymentLimiter, async (req, res) => {
     const { token } = req.body as { token: string };
     try {
       const [rows]: any = await pool.query(
@@ -1979,6 +2129,7 @@ async function startServer() {
       const total = items.reduce((s: number, i: any) => s + Number(i.subtotal), 0);
 
       const midtransOrderId = `ADD-${add.id}-${Date.now()}`;
+      const baseUrl = process.env.BASE_URL || 'http://localhost:5173';
       const transaction = await snap.createTransaction({
         transaction_details: { order_id: midtransOrderId, gross_amount: Math.round(total) },
         customer_details: { first_name: add.customer_name, phone: add.phone },
@@ -1988,17 +2139,61 @@ async function startServer() {
           quantity: Math.round(Number(i.quantity)),
           name: i.name,
         })),
+        callbacks: { finish: `${baseUrl}/invoice/${add.customer_token}` },
       });
 
       await pool.query(
         `UPDATE order_additions SET status='customer_approved', payment_method='online',
-         payment_status='pending', updated_at=NOW() WHERE id=?`,
-        [add.id]
+         payment_status='pending', midtrans_order_id=?, updated_at=NOW() WHERE id=?`,
+        [midtransOrderId, add.id]
       );
 
-      res.json({ success: true, snapToken: transaction.token, redirectUrl: transaction.redirect_url });
+      res.json({ success: true, snapToken: transaction.token, redirectUrl: transaction.redirect_url, midtransOrderId });
     } catch (e) {
       res.status(500).json({ success: false, message: 'Gagal membuat transaksi' });
+    }
+  });
+
+  // POST /api/order-additions/:id/confirm-payment — verifikasi status Midtrans & tandai paid
+  app.post('/api/order-additions/:id/confirm-payment', customerPaymentLimiter, async (req, res) => {
+    const { token, midtransOrderId } = req.body as { token: string; midtransOrderId?: string };
+    try {
+      const [rows]: any = await pool.query(
+        'SELECT * FROM order_additions WHERE id=? AND customer_token=?',
+        [req.params.id, token]
+      );
+      if (!rows.length) return res.status(404).json({ success: false, message: 'Data tidak ditemukan' });
+      const add = rows[0];
+
+      // Sudah paid (mis. webhook lebih dulu masuk) → cukup pastikan invoice ada
+      if (add.status === 'paid') {
+        const inv = await ensureAdditionInvoice(add.id);
+        return res.json({ success: true, status: 'paid', invoiceToken: token, invoice_number: inv });
+      }
+
+      if (!midtransOrderId || !String(midtransOrderId).startsWith(`ADD-${add.id}-`)) {
+        return res.status(400).json({ success: false, message: 'midtransOrderId tidak valid' });
+      }
+
+      const core = new midtransClient.CoreApi({
+        isProduction: MIDTRANS_IS_PRODUCTION,
+        serverKey: MIDTRANS_SERVER_KEY,
+        clientKey: MIDTRANS_CLIENT_KEY,
+      });
+      const st = await core.transaction.status(midtransOrderId);
+
+      if (['capture', 'settlement'].includes(st.transaction_status)) {
+        await pool.query(
+          `UPDATE order_additions SET payment_status='paid', status='paid', updated_at=NOW() WHERE id=?`,
+          [add.id]
+        );
+        const inv = await ensureAdditionInvoice(add.id);
+        return res.json({ success: true, status: 'paid', invoiceToken: token, invoice_number: inv });
+      }
+
+      return res.json({ success: true, status: 'pending', midtransStatus: st.transaction_status });
+    } catch (e) {
+      res.status(500).json({ success: false, message: 'Gagal verifikasi pembayaran' });
     }
   });
 
@@ -2024,7 +2219,8 @@ async function startServer() {
   // PATCH /api/order-additions/:id/revise — revisi item
   app.patch('/api/order-additions/:id/revise', authenticateToken, requireTeknisi, async (req: any, res) => {
     const { items } = req.body as { items: Array<{ item_type: 'material'|'service'; ref_id: string; quantity: number }> };
-    if (!items?.length) return res.status(400).json({ success: false, message: 'items kosong' });
+    const itemsError = validateAdditionItems(items);
+    if (itemsError) return res.status(400).json({ success: false, message: itemsError });
     const conn = await pool.getConnection();
     try {
       await conn.beginTransaction();
@@ -2160,23 +2356,10 @@ async function startServer() {
       if (!rows.length) return res.status(404).json({ success: false, message: 'Data tidak ditemukan atau belum paid' });
       const add = rows[0];
 
-      // Generate nomor invoice jika belum ada
-      let invoiceNumber = add.invoice_number;
-      if (!invoiceNumber) {
-        const now = new Date();
-        const ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-        const [cntRows]: any = await pool.query(
-          `SELECT COUNT(*) as cnt FROM order_additions WHERE invoice_number IS NOT NULL AND DATE_FORMAT(invoice_sent_at,'%Y-%m')=?`,
-          [ym]
-        );
-        const seq = Number(cntRows[0].cnt) + 1;
-        invoiceNumber = `INV-${ym}-${String(seq).padStart(4,'0')}`;
-      }
-
-      await pool.query(
-        `UPDATE order_additions SET invoice_number=?, invoice_sent_at=NOW(), updated_at=NOW() WHERE id=?`,
-        [invoiceNumber, req.params.id]
-      );
+      // Generate nomor invoice (idempotent + lock global, konsisten dgn jalur lain).
+      // ensureAdditionInvoice menghitung gabungan orders + order_additions di bawah lock.
+      const invoiceNumber = add.invoice_number || await ensureAdditionInvoice(req.params.id);
+      if (!invoiceNumber) return res.status(500).json({ success: false, message: 'Gagal membuat nomor invoice' });
 
       const baseUrl = process.env.BASE_URL || 'http://localhost:5173';
       const invoiceUrl = `${baseUrl}/invoice/${add.customer_token}`;
@@ -2208,24 +2391,28 @@ async function startServer() {
         invoiceToken = crypto.randomBytes(32).toString('hex');
       }
 
-      let invoiceNumber = order.invoice_number;
-      if (!invoiceNumber) {
+      // Alokasi nomor invoice + tulis di bawah lock global agar seq tidak duplikat
+      // saat ada request bersamaan (mis. order biasa + addition pada saat yang sama).
+      const invoiceNumber = await withInvoiceLock(async (conn) => {
+        const [cur]: any = await conn.query(
+          'SELECT invoice_number FROM orders WHERE id=?', [req.params.orderId]
+        );
+        if (cur.length && cur[0].invoice_number) {
+          await conn.query(
+            `UPDATE orders SET invoice_token=COALESCE(invoice_token, ?), invoice_sent_at=NOW() WHERE id=?`,
+            [invoiceToken, req.params.orderId]
+          );
+          return cur[0].invoice_number;
+        }
         const now = new Date();
         const ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-        const [c1]: any = await pool.query(
-          `SELECT COUNT(*) as cnt FROM orders WHERE invoice_number IS NOT NULL AND DATE_FORMAT(invoice_sent_at,'%Y-%m')=?`, [ym]
+        const num = await nextInvoiceNumber(conn, ym);
+        await conn.query(
+          `UPDATE orders SET invoice_number=?, invoice_token=?, invoice_sent_at=NOW() WHERE id=?`,
+          [num, invoiceToken, req.params.orderId]
         );
-        const [c2]: any = await pool.query(
-          `SELECT COUNT(*) as cnt FROM order_additions WHERE invoice_number IS NOT NULL AND DATE_FORMAT(invoice_sent_at,'%Y-%m')=?`, [ym]
-        );
-        const seq = Number(c1[0].cnt) + Number(c2[0].cnt) + 1;
-        invoiceNumber = `INV-${ym}-${String(seq).padStart(4,'0')}`;
-      }
-
-      await pool.query(
-        `UPDATE orders SET invoice_number=?, invoice_token=?, invoice_sent_at=NOW() WHERE id=?`,
-        [invoiceNumber, invoiceToken, req.params.orderId]
-      );
+        return num;
+      });
 
       const baseUrl = process.env.BASE_URL || 'http://localhost:5173';
       const invoiceUrl = `${baseUrl}/order-invoice/${invoiceToken}`;

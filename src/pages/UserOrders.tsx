@@ -33,8 +33,11 @@ export default function UserOrders({ token }: UserOrdersProps) {
   useEffect(() => {
     fetchOrders();
 
-    // Auto-refresh setiap 5 detik untuk update status pembayaran (webhook/polling)
-    const interval = setInterval(fetchOrders, 5000);
+    // Auto-refresh setiap 5 detik untuk update status pembayaran (webhook/polling).
+    // Hanya poll saat tab terlihat agar tidak membuang resource server & bandwidth.
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchOrders();
+    }, 5000);
     return () => clearInterval(interval);
   }, [fetchOrders]);
 

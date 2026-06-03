@@ -8,3 +8,6 @@ coverage/
 !.env.example
 .claude/
 proyek-web-hdb/
+
+# Dump database (berisi data user asli — JANGAN di-commit)
+hdb_airconds*.sql

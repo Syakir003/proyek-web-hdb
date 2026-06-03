@@ -1,6 +1,10 @@
 // src/pages/CustomerAdditionApproval.tsx
 import React, { useState, useEffect } from 'react';
-import { Check, X, Loader2 } from 'lucide-react';
+import { Check, X, Loader2, FileText } from 'lucide-react';
+
+declare global {
+  interface Window { snap: any; }
+}
 
 interface Props { token: string; }
 
@@ -9,6 +13,8 @@ export default function CustomerAdditionApproval({ token }: Props) {
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState<'view'|'choose-payment'|'done'>('view');
   const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [outcome, setOutcome] = useState<'approved'|'rejected'|'pending'|null>(null);
 
   const fmt = (n: number) => new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(n);
 
@@ -19,40 +25,113 @@ export default function CustomerAdditionApproval({ token }: Props) {
       .finally(()=>setLoading(false));
   }, [token]);
 
+  // Muat skrip Midtrans Snap (pakai popup embed, bukan redirect)
+  useEffect(() => {
+    const isProduction = import.meta.env.VITE_MIDTRANS_IS_PRODUCTION === 'true';
+    const scriptUrl = isProduction
+      ? 'https://app.midtrans.com/snap/snap.js'
+      : 'https://app.sandbox.midtrans.com/snap/snap.js';
+    if (document.querySelector(`script[src="${scriptUrl}"]`)) return;
+    const script = document.createElement('script');
+    script.src = scriptUrl;
+    script.setAttribute('data-client-key', import.meta.env.VITE_MIDTRANS_CLIENT_KEY || '');
+    script.async = true;
+    document.head.appendChild(script);
+  }, []);
+
   const handleApprove = async (payment_method: 'cash'|'online') => {
+    if (!data) return;
     setSubmitting(true);
-    const r = await fetch(`/api/order-additions/${data.id}/customer-response`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, action: 'approve', payment_method }),
-    });
-    const d = await r.json();
-    if (d.success && payment_method === 'online') {
-      // Buat Midtrans transaction
+    setErrorMsg('');
+    try {
+      const r = await fetch(`/api/order-additions/${data.id}/customer-response`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, action: 'approve', payment_method }),
+      });
+      const d = await r.json();
+      if (!d.success) {
+        setErrorMsg(d.message || 'Gagal memproses persetujuan.');
+        setSubmitting(false);
+        return;
+      }
+
+      if (payment_method === 'cash') {
+        // Tunai langsung masuk invoice → tampilkan halaman terima kasih
+        setOutcome('approved');
+        setStep('done');
+        setSubmitting(false);
+        return;
+      }
+
+      // Online: buat transaksi lalu tampilkan popup Snap
       const pr = await fetch(`/api/order-additions/${data.id}/payment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token }),
       });
       const pd = await pr.json();
-      if (pd.success && pd.redirectUrl) {
-        window.location.href = pd.redirectUrl;
+      if (!pd.success || !pd.snapToken) {
+        setErrorMsg(pd.message || 'Gagal membuat transaksi pembayaran.');
+        setSubmitting(false);
         return;
       }
+
+      const finalize = async (result?: any) => {
+        // Verifikasi status ke server sebelum dianggap lunas
+        const cr = await fetch(`/api/order-additions/${data.id}/confirm-payment`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, midtransOrderId: result?.order_id || pd.midtransOrderId }),
+        });
+        const cd = await cr.json();
+        setOutcome(cd.success && cd.status === 'paid' ? 'approved' : 'pending');
+        setStep('done');
+        setSubmitting(false);
+      };
+
+      if (window.snap && typeof window.snap.pay === 'function') {
+        window.snap.pay(pd.snapToken, {
+          onSuccess: (result: any) => finalize(result),
+          onPending: (result: any) => finalize(result),
+          onError: () => { setErrorMsg('Pembayaran gagal. Silakan coba lagi.'); setSubmitting(false); },
+          onClose: () => { setSubmitting(false); },
+        });
+      } else if (pd.redirectUrl) {
+        // Fallback: Snap belum termuat → redirect (finish URL sudah diset di server)
+        window.location.href = pd.redirectUrl;
+      } else {
+        setErrorMsg('Komponen pembayaran belum siap. Muat ulang halaman.');
+        setSubmitting(false);
+      }
+    } catch {
+      setErrorMsg('Terjadi kesalahan jaringan. Silakan coba lagi.');
+      setSubmitting(false);
     }
-    setStep('done');
-    setSubmitting(false);
   };
 
   const handleReject = async () => {
+    if (!data) return;
     setSubmitting(true);
-    await fetch(`/api/order-additions/${data.id}/customer-response`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, action: 'reject' }),
-    });
-    setStep('done');
-    setSubmitting(false);
+    setErrorMsg('');
+    try {
+      const r = await fetch(`/api/order-additions/${data.id}/customer-response`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, action: 'reject' }),
+      });
+      const d = await r.json();
+      if (!d.success) {
+        setErrorMsg(d.message || 'Gagal memproses penolakan.');
+        return;
+      }
+      setOutcome('rejected');
+      setStep('done');
+    } catch {
+      setErrorMsg('Terjadi kesalahan jaringan. Silakan coba lagi.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (loading) return (
@@ -74,7 +153,25 @@ export default function CustomerAdditionApproval({ token }: Props) {
       <div className="bg-white rounded-2xl p-8 text-center max-w-sm w-full shadow-sm border border-slate-100">
         <Check className="w-12 h-12 text-emerald-500 mx-auto mb-4" />
         <h2 className="text-xl font-bold text-slate-800 mb-2">Terima kasih!</h2>
-        <p className="text-slate-500 text-sm">Respons Anda telah diterima. Tim kami akan segera menindaklanjuti.</p>
+        {outcome === 'approved' ? (
+          <>
+            <p className="text-slate-500 text-sm mb-6">
+              Pembayaran Anda telah kami terima. Invoice untuk penambahan ini sudah tersedia.
+            </p>
+            <a
+              href={`/invoice/${token}`}
+              className="inline-flex items-center justify-center gap-2 w-full bg-sky-500 text-white py-3 rounded-xl font-semibold hover:bg-sky-600 transition-colors"
+            >
+              <FileText className="w-5 h-5" /> Lihat Invoice
+            </a>
+          </>
+        ) : outcome === 'pending' ? (
+          <p className="text-slate-500 text-sm">
+            Pembayaran Anda sedang diproses. Invoice akan otomatis tersedia setelah pembayaran dikonfirmasi.
+          </p>
+        ) : (
+          <p className="text-slate-500 text-sm">Respons Anda telah diterima. Tim kami akan segera menindaklanjuti.</p>
+        )}
       </div>
     </div>
   );
@@ -121,6 +218,12 @@ export default function CustomerAdditionApproval({ token }: Props) {
             <span className="text-xl font-bold text-sky-600">{fmt(data.total)}</span>
           </div>
         </div>
+
+        {errorMsg && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4 text-sm text-red-600 text-center">
+            {errorMsg}
+          </div>
+        )}
 
         {!alreadyActed && step === 'view' && (
           <div className="flex gap-3">
