@@ -18,9 +18,9 @@ const HOME_BREADCRUMB = [
 
 const pageSEO: Record<string, SEOMeta> = {
   beranda: {
-    title: "Service AC Mojokerto Mulai Rp90rb Â· Garansi Resmi | HDB Airconds",
+    title: "Service AC Mojokerto & Mojosari Mulai Rp90rb · Garansi Resmi | HDB Airconds",
     description:
-      "Jasa service & cuci AC Mojokertoâ€“Mojosari. Teknisi bersertifikat, respon <2 jam, bergaransi resmi. Cuci AC mulai Rp90rb. Hubungi WA 24/7.",
+      "Jasa service & cuci AC Mojokerto–Mojosari. Teknisi bersertifikat, respon <2 jam, bergaransi resmi. Cuci AC mulai Rp90rb. Hubungi WA 24/7.",
     canonical: `${BASE_URL}/`,
     breadcrumb: HOME_BREADCRUMB,
   },
@@ -39,14 +39,14 @@ const pageSEO: Record<string, SEOMeta> = {
     breadcrumb: [...HOME_BREADCRUMB, { name: "Layanan AC", url: `${BASE_URL}/layanan` }],
   },
   tentang: {
-    title: "Tentang HDB Airconds â€” 10+ Tahun Service AC Mojokerto Sejak 2014",
+    title: "Tentang HDB Airconds — 10+ Tahun Service AC Mojokerto Sejak 2014",
     description:
       "HDB Airconds berdiri 2014, melayani 5.000+ pelanggan di Mojokerto. Tim 15+ teknisi bersertifikat, komitmen kualitas dan kepuasan pelanggan.",
     canonical: `${BASE_URL}/tentang`,
     breadcrumb: [...HOME_BREADCRUMB, { name: "Tentang Kami", url: `${BASE_URL}/tentang` }],
   },
   blog: {
-    title: "Blog & Tips Perawatan AC â€” Panduan Lengkap | HDB Airconds",
+    title: "Blog & Tips Perawatan AC — Panduan Lengkap | HDB Airconds",
     description:
       "Tips merawat AC agar awet & hemat listrik, cara mengatasi AC tidak dingin, jadwal cuci AC ideal. Artikel dari teknisi AC berpengalaman.",
     canonical: `${BASE_URL}/blog`,
