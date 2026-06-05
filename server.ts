@@ -443,8 +443,28 @@ async function startServer() {
       directives: {
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
         "img-src": ["'self'", "data:", "https:"],
-        // Izinkan embed Google Maps (iframe di halaman Kontak)
-        "frame-src": ["'self'", "https://maps.google.com", "https://www.google.com"],
+        // Izinkan script Midtrans Snap (sandbox & production)
+        "script-src": [
+          "'self'",
+          "https://app.sandbox.midtrans.com",
+          "https://app.midtrans.com",
+        ],
+        // XHR Snap ke API Midtrans
+        "connect-src": [
+          "'self'",
+          "https://api.sandbox.midtrans.com",
+          "https://api.midtrans.com",
+          "https://app.sandbox.midtrans.com",
+          "https://app.midtrans.com",
+        ],
+        // Iframe: Google Maps (halaman Kontak) + popup pembayaran Midtrans Snap
+        "frame-src": [
+          "'self'",
+          "https://maps.google.com",
+          "https://www.google.com",
+          "https://app.sandbox.midtrans.com",
+          "https://app.midtrans.com",
+        ],
       },
     },
   }));
