@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Check, X, Clock, Search, Trash2, UserCog, MessageSquare, Camera, ChevronDown, ChevronUp, FileText, Send, CreditCard } from "lucide-react";
+import { Check, X, Clock, Search, Trash2, UserCog, MessageSquare, Camera, ChevronDown, ChevronUp, FileText, Send, CreditCard, Package, Wrench } from "lucide-react";
 
 interface OrderPhoto {
   id: number;
@@ -182,6 +182,51 @@ export default function AdminOrders({ token }: { token: string }) {
     }).format(price);
   };
 
+  // Rincian item pesanan: chip jumlah, nama, label Unit/Jasa, dan subtotal per baris
+  const renderOrderItems = (order: any) => {
+    if (!order.items || order.items.length === 0) {
+      return <div className="text-slate-700">{order.product_name}</div>;
+    }
+    return (
+      <ul className="space-y-2.5">
+        {order.items.map((it: any, i: number) => {
+          const isService = it.item_type === "service";
+          return (
+            <li key={i} className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2 min-w-0">
+                <span className="shrink-0 mt-0.5 inline-flex h-5 min-w-[1.6rem] items-center justify-center rounded-md bg-slate-200/70 px-1 text-xs font-bold text-slate-700 tabular-nums">
+                  {it.quantity}×
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm text-slate-800 leading-snug break-words">
+                    {it.item_name}
+                  </p>
+                  <span
+                    className={`mt-1 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                      isService
+                        ? "bg-purple-100 text-purple-700"
+                        : "bg-sky-100 text-sky-700"
+                    }`}
+                  >
+                    {isService ? (
+                      <Wrench className="w-2.5 h-2.5" />
+                    ) : (
+                      <Package className="w-2.5 h-2.5" />
+                    )}
+                    {isService ? "Jasa" : "Unit"}
+                  </span>
+                </div>
+              </div>
+              <span className="shrink-0 text-xs font-medium text-slate-500 tabular-nums">
+                {formatRupiah((it.price || 0) * (it.quantity || 0))}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    );
+  };
+
   const getPaymentMethodLabel = (method: string) => {
     switch (method) {
       case "transfer_bank":
@@ -294,7 +339,7 @@ export default function AdminOrders({ token }: { token: string }) {
             <tr className="bg-slate-50 text-slate-500 text-sm uppercase tracking-wider">
               <th className="p-4 font-medium">ID</th>
               <th className="p-4 font-medium">Pelanggan</th>
-              <th className="p-4 font-medium">Produk</th>
+              <th className="p-4 font-medium">Produk / Jasa</th>
               <th className="p-4 font-medium text-center">Jumlah</th>
               <th className="p-4 font-medium">Pembayaran</th>
               <th className="p-4 font-medium">Status Bayar</th>
@@ -335,7 +380,7 @@ export default function AdminOrders({ token }: { token: string }) {
                     <div className="text-sm text-slate-500">{order.phone}</div>
                   </td>
                   <td className="p-4 text-sm text-slate-700">
-                    <div>{order.product_name}</div>
+                    {renderOrderItems(order)}
                     {order.notes && (
                       <div className="flex items-start gap-1 mt-1">
                         <MessageSquare className="w-3 h-3 text-amber-500 mt-0.5 shrink-0" />
@@ -521,9 +566,13 @@ export default function AdminOrders({ token }: { token: string }) {
                 {getStatusBadge(order.status)}
               </div>
 
-              <div className="text-sm text-slate-700 mb-2">
-                <span className="font-medium">Produk:</span>{" "}
-                {order.product_name}
+              <div className="mb-3">
+                <span className="text-sm font-medium text-slate-700 block mb-1.5">
+                  Detail Pesanan
+                </span>
+                <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                  {renderOrderItems(order)}
+                </div>
               </div>
               {order.notes && (
                 <div className="flex items-start gap-1.5 mb-2 p-2 bg-amber-50 rounded-lg border border-amber-100">

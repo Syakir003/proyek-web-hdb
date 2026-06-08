@@ -1518,6 +1518,24 @@ async function startServer() {
          FROM orders o LEFT JOIN order_items oi ON o.id = oi.order_id
          GROUP BY o.id ORDER BY o.created_at DESC`,
       );
+
+      // Rincian item per order (unit & jasa) untuk ditampilkan detail di admin
+      const [itemRows]: any = await pool.query(
+        `SELECT order_id, item_type, item_id, item_name, quantity, price
+         FROM order_items ORDER BY order_id, id`,
+      );
+      const itemsByOrder: Record<string, any[]> = {};
+      for (const it of itemRows) {
+        if (!itemsByOrder[it.order_id]) itemsByOrder[it.order_id] = [];
+        itemsByOrder[it.order_id].push({
+          item_type: it.item_type,
+          item_id: it.item_id,
+          item_name: it.item_name,
+          quantity: Number(it.quantity) || 0,
+          price: Number(it.price) || 0,
+        });
+      }
+
       res.json({
         success: true,
         data: rows.map((o: any) => ({
@@ -1537,6 +1555,7 @@ async function startServer() {
           invoice_number: o.invoice_number || null,
           invoice_token: o.invoice_token || null,
           invoice_sent_at: o.invoice_sent_at || null,
+          items: itemsByOrder[o.id] || [],
         })),
       });
     } catch {
