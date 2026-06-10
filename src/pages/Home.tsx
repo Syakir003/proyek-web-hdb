@@ -81,7 +81,6 @@ const statsData = [
     suffix: "+",
     label: "Pelanggan Puas",
     desc: "Di seluruh Indonesia",
-    color: "from-sky-400 to-sky-600",
   },
   {
     icon: Briefcase,
@@ -89,7 +88,6 @@ const statsData = [
     suffix: "+",
     label: "Tahun Pengalaman",
     desc: "Berdiri sejak 2014",
-    color: "from-blue-400 to-blue-600",
   },
   {
     icon: Award,
@@ -97,7 +95,6 @@ const statsData = [
     suffix: "+",
     label: "Merek Tersedia",
     desc: "Pilihan terlengkap",
-    color: "from-cyan-400 to-cyan-600",
   },
   {
     icon: Clock,
@@ -105,7 +102,6 @@ const statsData = [
     suffix: "/7",
     label: "Layanan Darurat",
     desc: "Siap kapan saja",
-    color: "from-indigo-400 to-indigo-600",
   },
 ];
 
@@ -659,11 +655,7 @@ export default function Home({
                 transition={{ duration: 0.5, delay: i * 0.1 }}
               >
                 <div className="bg-white/10 backdrop-blur-sm hover:bg-white/20 border border-white/20 rounded-2xl p-6 text-center transition-all duration-300 hover:-translate-y-1">
-                  <div
-                    className={`w-12 h-12 rounded-xl bg-gradient-to-br ${stat.color} mx-auto mb-4 flex items-center justify-center shadow-lg`}
-                  >
-                    <stat.icon className="w-6 h-6 text-white" />
-                  </div>
+                  <stat.icon className="w-7 h-7 text-sky-100 mx-auto mb-4" strokeWidth={1.5} />
                   <div className="text-4xl font-bold text-white mb-1">
                     <CountUp target={stat.value} suffix={stat.suffix} />
                   </div>

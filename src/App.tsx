@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from "react";
 import { AnimatePresence } from "motion/react";
-import { MessageCircle } from "lucide-react";
+import { BrandIcon } from "./components/BrandIcons";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import Home from "./pages/Home";
@@ -448,7 +448,7 @@ export default function App() {
           rel="noopener noreferrer"
           className="fixed bottom-6 right-6 z-50 bg-green-500 text-white px-4 py-3 sm:px-5 rounded-full shadow-lg hover:bg-green-600 transition-all hover:-translate-y-1 flex items-center gap-2 font-medium"
         >
-          <MessageCircle className="w-5 h-5" />
+          <BrandIcon name="whatsappMono" size={22} className="text-white" />
           <span className="hidden sm:inline">Chat Kami</span>
         </a>
       )}

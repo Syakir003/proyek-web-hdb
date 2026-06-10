@@ -1,6 +1,7 @@
 import React from "react";
-import { Wind, Phone, Mail, MapPin, Facebook, Instagram, ArrowRight, Clock } from "lucide-react";
+import { Wind, Phone, ArrowRight, Clock } from "lucide-react";
 import { motion } from "motion/react";
+import { BrandIcon } from "./BrandIcons";
 
 const footerLinks = {
   company: [
@@ -66,22 +67,22 @@ export default function Footer({ setCurrentPage }: { setCurrentPage: (page: stri
                 <a href="tel:+6281515729739" className="hover:text-sky-400 transition-colors">(+62) 815-1572-9739</a>
               </div>
               <div className="flex items-center gap-3 text-slate-400 text-sm">
-                <Mail className="w-4 h-4 text-sky-400 flex-shrink-0" />
+                <BrandIcon name="gmail" size={15} className="flex-shrink-0" />
                 <span>hasildayabersama@gmail.com</span>
               </div>
               <div className="flex items-start gap-3 text-slate-400 text-sm">
-                <MapPin className="w-4 h-4 text-sky-400 flex-shrink-0 mt-0.5" />
+                <BrandIcon name="maps" size={16} className="flex-shrink-0 mt-0.5" />
                 <span>Jl. Gajah Mada No.19, Mojosari, Kabupaten Mojokerto, Jawa Timur 61382</span>
               </div>
             </div>
             <div className="flex items-center gap-3 mt-6">
-              {[
-                { Icon: Facebook, href: "https://www.facebook.com/share/1DRTW2ZtPG/?mibextid=wwXIfr", label: "Facebook" },
-                { Icon: Instagram, href: "https://www.instagram.com/kusnadijozz22?igsh=ZTVwbjdtODlxMzA2", label: "Instagram" },
-                { Icon: Phone, href: "https://wa.me/6281515729739", label: "WhatsApp" },
-              ].map(({ Icon, href, label }) => (
-                <motion.a key={label} href={href} target="_blank" rel="noopener noreferrer" whileHover={{ scale: 1.1 }} className="w-9 h-9 rounded-lg bg-slate-800 hover:bg-sky-500 text-slate-400 hover:text-white flex items-center justify-center transition-all duration-200" aria-label={label}>
-                  <Icon className="w-4 h-4" />
+              {([
+                { name: "facebook", href: "https://www.facebook.com/share/1DRTW2ZtPG/?mibextid=wwXIfr", label: "Facebook" },
+                { name: "instagram", href: "https://www.instagram.com/kusnadijozz22?igsh=ZTVwbjdtODlxMzA2", label: "Instagram" },
+                { name: "whatsapp", href: "https://wa.me/6281515729739", label: "WhatsApp" },
+              ] as const).map(({ name, href, label }) => (
+                <motion.a key={label} href={href} target="_blank" rel="noopener noreferrer" whileHover={{ scale: 1.1 }} className="w-9 h-9 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-all duration-200" aria-label={label}>
+                  <BrandIcon name={name} size={17} />
                 </motion.a>
               ))}
             </div>

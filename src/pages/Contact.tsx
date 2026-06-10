@@ -1,33 +1,38 @@
 import React, { useState } from "react";
-import { MapPin, Phone, Mail, Clock, Send, MessageCircle, BadgeCheck, ArrowRight, Wind } from "lucide-react";
+import { MapPin, Phone, Clock, Send, BadgeCheck, Wind } from "lucide-react";
 import { motion } from "motion/react";
+import { BrandIcon, type BrandName } from "../components/BrandIcons";
 
-const contactItems = [
+type ContactItem = {
+  label: string;
+  lines: string[];
+  href?: string;
+  brand?: BrandName;
+  icon?: React.ElementType;
+};
+
+const contactItems: ContactItem[] = [
   {
-    icon: MapPin,
+    brand: "maps",
     label: "Alamat",
     lines: ["Jl. Gajah Mada No.19, Rw. III, Seduri", "Kec. Mojosari, Kabupaten Mojokerto", "Jawa Timur 61382"],
-    color: "from-sky-400 to-sky-600",
   },
   {
-    icon: Phone,
+    brand: "whatsapp",
     label: "Telepon / WhatsApp",
     lines: ["(+62) 815-1572-9739"],
-    color: "from-emerald-400 to-teal-500",
     href: "tel:+6281515729739",
   },
   {
-    icon: Mail,
+    brand: "gmail",
     label: "Email",
     lines: ["hasildayabersama@gmail.com"],
-    color: "from-blue-400 to-blue-600",
     href: "mailto:hasildayabersama@gmail.com",
   },
   {
     icon: Clock,
     label: "Jam Operasional",
     lines: ["Senin – Sabtu: 08:00 – 17:00", "Minggu: Tutup (Kecuali Darurat)"],
-    color: "from-amber-400 to-orange-500",
   },
 ];
 
@@ -88,7 +93,7 @@ export default function Contact() {
         >
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
-              <MessageCircle className="w-6 h-6" />
+              <BrandIcon name="whatsappMono" size={26} className="text-white" />
             </div>
             <div>
               <h3 className="font-bold text-lg">Respon Tercepat via WhatsApp</h3>
@@ -101,7 +106,7 @@ export default function Contact() {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 bg-white text-green-600 px-6 py-3 rounded-xl font-bold hover:bg-green-50 transition-colors shadow-md shrink-0"
           >
-            <MessageCircle className="w-5 h-5" /> Chat Sekarang
+            <BrandIcon name="whatsapp" size={20} /> Chat Sekarang
           </a>
         </motion.div>
       </div>
@@ -127,8 +132,12 @@ export default function Contact() {
                   transition={{ delay: i * 0.1, duration: 0.4 }}
                   className="bg-white border border-slate-200 rounded-2xl p-5 flex items-start gap-4 hover:border-sky-200 hover:shadow-md transition-all group"
                 >
-                  <div className={`w-11 h-11 bg-gradient-to-br ${item.color} text-white rounded-xl flex items-center justify-center flex-shrink-0 shadow-md`}>
-                    <item.icon className="w-5 h-5" />
+                  <div className="w-11 h-11 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                    {item.brand ? (
+                      <BrandIcon name={item.brand} size={22} />
+                    ) : item.icon ? (
+                      <item.icon className="w-5 h-5 text-sky-600" strokeWidth={1.75} />
+                    ) : null}
                   </div>
                   <div>
                     <p className="font-semibold text-slate-900 text-sm mb-1">{item.label}</p>
@@ -154,29 +163,28 @@ export default function Contact() {
                   href="https://www.facebook.com/share/1DRTW2ZtPG/?mibextid=wwXIfr"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-10 h-10 bg-sky-50 text-sky-600 rounded-xl flex items-center justify-center hover:bg-sky-500 hover:text-white transition-all"
+                  aria-label="Facebook"
+                  className="w-10 h-10 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-center hover:bg-slate-100 transition-colors"
                 >
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                  </svg>
+                  <BrandIcon name="facebook" size={20} />
                 </a>
                 <a
                   href="https://www.instagram.com/kusnadijozz22?igsh=ZTVwbjdtODlxMzA2"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-10 h-10 bg-pink-50 text-pink-500 rounded-xl flex items-center justify-center hover:bg-pink-500 hover:text-white transition-all"
+                  aria-label="Instagram"
+                  className="w-10 h-10 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-center hover:bg-slate-100 transition-colors"
                 >
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
-                  </svg>
+                  <BrandIcon name="instagram" size={20} />
                 </a>
                 <a
                   href="https://wa.me/6281515729739"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-10 h-10 bg-green-50 text-green-500 rounded-xl flex items-center justify-center hover:bg-green-500 hover:text-white transition-all"
+                  aria-label="WhatsApp"
+                  className="w-10 h-10 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-center hover:bg-slate-100 transition-colors"
                 >
-                  <MessageCircle className="w-5 h-5" />
+                  <BrandIcon name="whatsapp" size={20} />
                 </a>
               </div>
             </div>
@@ -300,7 +308,7 @@ export default function Contact() {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 text-sky-600 hover:text-sky-700 text-sm font-semibold flex-shrink-0 hover:underline"
             >
-              <ArrowRight className="w-3.5 h-3.5" />
+              <BrandIcon name="maps" size={15} />
               Buka di Google Maps
             </a>
           </div>
@@ -332,7 +340,7 @@ export default function Contact() {
                 rel="noopener noreferrer"
                 className="inline-flex items-center justify-center gap-2 bg-white text-sky-600 px-8 py-4 rounded-2xl font-bold hover:bg-sky-50 transition-colors shadow-lg"
               >
-                <MessageCircle className="w-5 h-5" /> Chat WhatsApp
+                <BrandIcon name="whatsapp" size={20} /> Chat WhatsApp
               </a>
               <a
                 href="tel:+6281515729739"
