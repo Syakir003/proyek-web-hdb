@@ -87,7 +87,7 @@ function validateAdditionItems(items: any): string | null {
 const REQUIRED_ENV = ["JWT_SECRET", "DB_HOST", "DB_USER", "DB_NAME"];
 for (const key of REQUIRED_ENV) {
   if (!process.env[key]) {
-    console.error(`âŒ Missing required env variable: ${key}`);
+    console.error(`[ERR] Missing required env variable: ${key}`);
     process.exit(1);
   }
 }
@@ -99,11 +99,11 @@ const IS_PRODUCTION = process.env.NODE_ENV === "production";
 // Guard tambahan untuk production: tolak startup bila konfigurasi rawan
 if (IS_PRODUCTION) {
   if (!process.env.DB_PASSWORD) {
-    console.error("âŒ DB_PASSWORD wajib diisi di environment production");
+    console.error("[ERR] DB_PASSWORD wajib diisi di environment production");
     process.exit(1);
   }
   if (JWT_SECRET.length < 32) {
-    console.error("âŒ JWT_SECRET terlalu lemah untuk production (min. 32 karakter acak). " +
+    console.error("[ERR] JWT_SECRET terlalu lemah untuk production (min. 32 karakter acak). " +
       "Generate dengan: node -e \"console.log(require('crypto').randomBytes(48).toString('hex'))\"");
     process.exit(1);
   }
@@ -117,14 +117,14 @@ const MIDTRANS_SERVER_KEY = process.env.MIDTRANS_SERVER_KEY || "";
 const MIDTRANS_CLIENT_KEY = process.env.MIDTRANS_CLIENT_KEY || "";
 // Hindari mencetak detail diagnostik key di production (membantu attacker memvalidasi key curian)
 if (!IS_PRODUCTION) {
-  console.log("ðŸ”‘ SERVER KEY len:", MIDTRANS_SERVER_KEY.length, "| last char code:", MIDTRANS_SERVER_KEY.charCodeAt(MIDTRANS_SERVER_KEY.length - 1));
-  console.log("ðŸ”‘ CLIENT KEY len:", MIDTRANS_CLIENT_KEY.length, "| last char code:", MIDTRANS_CLIENT_KEY.charCodeAt(MIDTRANS_CLIENT_KEY.length - 1));
+  console.log("[KEY] SERVER KEY len:", MIDTRANS_SERVER_KEY.length, "| last char code:", MIDTRANS_SERVER_KEY.charCodeAt(MIDTRANS_SERVER_KEY.length - 1));
+  console.log("[KEY] CLIENT KEY len:", MIDTRANS_CLIENT_KEY.length, "| last char code:", MIDTRANS_CLIENT_KEY.charCodeAt(MIDTRANS_CLIENT_KEY.length - 1));
 }
 
 // Validation: cek konfigurasi Midtrans (warning only, tidak crash)
 (function validateMidtransConfig() {
   if (!MIDTRANS_SERVER_KEY || !MIDTRANS_CLIENT_KEY) {
-    console.warn("âš ï¸  WARNING: MIDTRANS_SERVER_KEY atau MIDTRANS_CLIENT_KEY belum diisi di .env");
+    console.warn("[WARN] MIDTRANS_SERVER_KEY atau MIDTRANS_CLIENT_KEY belum diisi di .env");
     console.warn("    Pembayaran TIDAK akan berfungsi sampai key diisi.");
     return;
   }
@@ -140,21 +140,21 @@ if (!IS_PRODUCTION) {
   const clientEnv = clientIsSandbox ? "sandbox" : clientIsProduction ? "production" : "unknown";
 
   if (serverEnv !== "unknown" && clientEnv !== "unknown" && serverEnv !== clientEnv) {
-    console.warn("âš ï¸  WARNING: Server key dan Client key terdeteksi beda environment!");
+    console.warn("[WARN] Server key dan Client key terdeteksi beda environment!");
     console.warn(`    Server key: ${serverEnv} (${MIDTRANS_SERVER_KEY.substring(0, 20)}...)`);
     console.warn(`    Client key: ${clientEnv} (${MIDTRANS_CLIENT_KEY.substring(0, 20)}...)`);
   }
 
   // Hanya warn jika prefix SB- jelas menandakan sandbox tapi flag production=true, atau sebaliknya
   if (MIDTRANS_IS_PRODUCTION && serverIsSandbox) {
-    console.warn("âš ï¸  WARNING: MIDTRANS_IS_PRODUCTION=true tapi key berawalan SB- (sandbox).");
+    console.warn("[WARN] MIDTRANS_IS_PRODUCTION=true tapi key berawalan SB- (sandbox).");
   }
   if (!MIDTRANS_IS_PRODUCTION && serverIsProduction) {
-    console.warn(`âš ï¸  WARNING: MIDTRANS_IS_PRODUCTION=false dengan key berawalan Mid-server- (production-style).`);
+    console.warn(`[WARN] MIDTRANS_IS_PRODUCTION=false dengan key berawalan Mid-server- (production-style).`);
     console.warn("    Jika ini akun sandbox tanpa prefix SB-, abaikan pesan ini.");
   }
 
-  console.log(`âœ… Midtrans configured: ${MIDTRANS_IS_PRODUCTION ? "ðŸ”´ PRODUCTION (real money!)" : "ðŸŸ¡ SANDBOX (test mode)"}`);
+  console.log(`[OK] Midtrans configured: ${MIDTRANS_IS_PRODUCTION ? "PRODUCTION (real money!)" : "SANDBOX (test mode)"}`);
 })();
 
 const snap = new midtransClient.Snap({
@@ -181,7 +181,7 @@ const pool = mysql.createPool({
 // =========================
 async function testDB() {
   await pool.query("SELECT 1");
-  console.log("âœ… Database connected");
+  console.log("[OK] Database connected");
 
   // Migration: tambah image_alt + image_mime ke products (jika belum ada)
   const [productCols]: any = await pool.query(
@@ -191,15 +191,15 @@ async function testDB() {
   const productColSet = new Set((productCols as any[]).map(r => r.COLUMN_NAME));
   if (!productColSet.has("image_alt")) {
     await pool.query("ALTER TABLE products ADD COLUMN image_alt VARCHAR(255) DEFAULT NULL");
-    console.log("  â†’ migrated: products.image_alt added");
+    console.log("  -> migrated: products.image_alt added");
   }
   if (!productColSet.has("image_mime")) {
     await pool.query("ALTER TABLE products ADD COLUMN image_mime VARCHAR(50) DEFAULT 'image/webp'");
-    console.log("  â†’ migrated: products.image_mime added");
+    console.log("  -> migrated: products.image_mime added");
   }
   if (!productColSet.has("slug")) {
     await pool.query("ALTER TABLE products ADD COLUMN slug VARCHAR(200) DEFAULT NULL, ADD INDEX idx_slug (slug)");
-    console.log("  â†’ migrated: products.slug added");
+    console.log("  -> migrated: products.slug added");
   }
 
   // Migration: tambah image_mime ke team
@@ -210,7 +210,7 @@ async function testDB() {
   const teamColSet = new Set((teamCols as any[]).map(r => r.COLUMN_NAME));
   if (teamColSet.size > 0 && !teamColSet.has("image_mime")) {
     await pool.query("ALTER TABLE team ADD COLUMN image_mime VARCHAR(50) DEFAULT 'image/webp'");
-    console.log("  â†’ migrated: team.image_mime added");
+    console.log("  -> migrated: team.image_mime added");
   }
 
   const [cols]: any = await pool.query(
@@ -334,15 +334,15 @@ async function testDB() {
   const ordInvColSet = new Set((ordInvCols as any[]).map((r: any) => r.COLUMN_NAME));
   if (!ordInvColSet.has('invoice_number')) {
     await pool.query("ALTER TABLE orders ADD COLUMN invoice_number VARCHAR(30) DEFAULT NULL");
-    console.log("  â†’ migrated: orders.invoice_number added");
+    console.log("  -> migrated: orders.invoice_number added");
   }
   if (!ordInvColSet.has('invoice_token')) {
     await pool.query("ALTER TABLE orders ADD COLUMN invoice_token VARCHAR(64) DEFAULT NULL");
-    console.log("  â†’ migrated: orders.invoice_token added");
+    console.log("  -> migrated: orders.invoice_token added");
   }
   if (!ordInvColSet.has('invoice_sent_at')) {
     await pool.query("ALTER TABLE orders ADD COLUMN invoice_sent_at TIMESTAMP NULL DEFAULT NULL");
-    console.log("  â†’ migrated: orders.invoice_sent_at added");
+    console.log("  -> migrated: orders.invoice_sent_at added");
   }
 
   // Migration: simpan midtrans_order_id pada order_additions agar webhook
@@ -355,7 +355,7 @@ async function testDB() {
   if (!oaColSet.has('midtrans_order_id')) {
     await pool.query("ALTER TABLE order_additions ADD COLUMN midtrans_order_id VARCHAR(100) DEFAULT NULL");
     await pool.query("ALTER TABLE order_additions ADD INDEX idx_oa_midtrans (midtrans_order_id)");
-    console.log("  â†’ migrated: order_additions.midtrans_order_id added");
+    console.log("  -> migrated: order_additions.midtrans_order_id added");
   }
 }
 
@@ -1022,7 +1022,7 @@ async function startServer() {
 
       res.json({ success: true, orderId, snapToken });
     } catch (err: any) {
-      console.error("âŒ Error creating snap token:", err?.message);
+      console.error("[ERR] Error creating snap token:", err?.message);
       res.status(500).json({ success: false, error: "Gagal membuat token pembayaran" });
     }
   });
@@ -2592,7 +2592,7 @@ async function startServer() {
   };
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`ðŸš€ Server running on:`);
+    console.log(`[*] Server running on:`);
     console.log(`   Local:   http://localhost:${PORT}`);
     console.log(`   Network: http://${getLocalIp()}:${PORT}`);
   });
