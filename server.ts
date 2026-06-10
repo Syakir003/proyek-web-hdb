@@ -560,12 +560,13 @@ async function startServer() {
       }
 
       const hashedPassword = await bcrypt.hash(password, 12);
-      await pool.query(
+      const [ins]: any = await pool.query(
         "INSERT INTO users (username,password,name,role) VALUES (?,?,?,?)",
         [username, hashedPassword, name, "user"],
       );
 
-      const token = jwt.sign({ username, role: "user" }, JWT_SECRET, { expiresIn: "24h" });
+      // Sertakan id agar konsisten dengan token login (dipakai cek kepemilikan order)
+      const token = jwt.sign({ id: ins.insertId, username, role: "user" }, JWT_SECRET, { expiresIn: "24h" });
       res.json({ success: true, token, role: "user" });
     } catch {
       res.status(500).json({ success: false, error: "Gagal mendaftar, coba lagi" });
@@ -1052,6 +1053,28 @@ async function startServer() {
   }
 
   // =========================
+  // HELPER: verifikasi status order ke Midtrans (SUMBER KEBENARAN)
+  // =========================
+  // Ambil status transaksi sebenarnya dari Midtrans Core API berdasarkan order_id
+  // (ORD-...), lalu sinkronkan ke DB. TIDAK PERNAH mempercayai status dari client.
+  // Mengembalikan null bila transaksi belum ada di Midtrans (mis. user belum bayar).
+  async function syncOrderFromMidtrans(orderId: string) {
+    const core = new midtransClient.CoreApi({
+      isProduction: MIDTRANS_IS_PRODUCTION,
+      serverKey: MIDTRANS_SERVER_KEY,
+      clientKey: MIDTRANS_CLIENT_KEY,
+    });
+    try {
+      const st: any = await core.transaction.status(orderId);
+      const result = await updateOrderFromMidtrans(orderId, st.transaction_status, st.transaction_id);
+      return { status: st.transaction_status, ...result };
+    } catch {
+      // 404 / transaksi belum ada → jangan ubah status DB
+      return null;
+    }
+  }
+
+  // =========================
   // HELPER: generate nomor invoice untuk order addition (idempotent)
   // =========================
   // Jalankan fn sambil memegang named-lock MySQL pada SATU koneksi khusus.
@@ -1160,14 +1183,27 @@ async function startServer() {
   // =========================
   // MIDTRANS â€” PAYMENT CALLBACK
   // =========================
+  // Sinkronisasi status setelah popup Snap ditutup. PENTING: status pembayaran
+  // TIDAK diambil dari body client (cegah pemalsuan "settlement"); selalu
+  // diverifikasi ulang ke Midtrans Core API. + cek kepemilikan (cegah IDOR).
   app.post("/api/midtrans/payment-callback", authenticateToken, async (req: any, res) => {
     try {
-      const { orderId, transactionStatus, transactionId } = req.body;
-      if (!orderId || !transactionStatus) {
-        return res.status(400).json({ success: false, error: "orderId dan transactionStatus diperlukan" });
+      const { orderId } = req.body;
+      if (!orderId) {
+        return res.status(400).json({ success: false, error: "orderId diperlukan" });
       }
-      const result = await updateOrderFromMidtrans(orderId, transactionStatus, transactionId);
-      res.json({ success: true, data: result });
+
+      const [orderRows]: any = await pool.query("SELECT user_id FROM orders WHERE id = ?", [orderId]);
+      if (!orderRows.length) {
+        return res.status(404).json({ success: false, error: "Order tidak ditemukan" });
+      }
+      // Hanya admin atau pemilik order (balas 404 agar tidak membocorkan keberadaan order)
+      if (req.user.role !== "admin" && String(orderRows[0].user_id) !== String(req.user.id)) {
+        return res.status(404).json({ success: false, error: "Order tidak ditemukan" });
+      }
+
+      const synced = await syncOrderFromMidtrans(orderId);
+      res.json({ success: true, data: synced || { status: "pending", source: "database" } });
     } catch {
       res.status(500).json({ success: false, error: "Gagal update status pembayaran" });
     }
@@ -1182,28 +1218,27 @@ async function startServer() {
       if (!orderId) return res.status(400).json({ success: false, error: "orderId diperlukan" });
 
       const [orderRows]: any = await pool.query(
-        "SELECT midtrans_transaction_id, payment_status FROM orders WHERE id = ?",
+        "SELECT user_id, payment_status FROM orders WHERE id = ?",
         [orderId],
       );
       if (!orderRows.length) return res.status(404).json({ success: false, error: "Order tidak ditemukan" });
 
       const order = orderRows[0];
+      // Cegah IDOR: hanya admin atau pemilik order (balas 404 agar tidak membocorkan keberadaan order)
+      if (req.user.role !== "admin" && String(order.user_id) !== String(req.user.id)) {
+        return res.status(404).json({ success: false, error: "Order tidak ditemukan" });
+      }
+
       if (order.payment_status === "settlement") {
         return res.json({ success: true, data: { status: "settlement", source: "database" } });
       }
-      if (!order.midtrans_transaction_id) {
-        return res.json({ success: true, data: { status: "pending", source: "database" } });
+
+      // Verifikasi status sebenarnya ke Midtrans (via order_id), lalu update DB.
+      const synced = await syncOrderFromMidtrans(orderId);
+      if (!synced) {
+        return res.json({ success: true, data: { status: order.payment_status || "pending", source: "database" } });
       }
-
-      const core = new midtransClient.CoreApi({
-        isProduction: process.env.MIDTRANS_IS_PRODUCTION === "true",
-        serverKey: process.env.MIDTRANS_SERVER_KEY,
-        clientKey: process.env.MIDTRANS_CLIENT_KEY,
-      });
-
-      const midtransStatus = await core.transaction.status(order.midtrans_transaction_id);
-      const result = await updateOrderFromMidtrans(orderId, midtransStatus.transaction_status, midtransStatus.transaction_id);
-      res.json({ success: true, data: { midtransStatus: midtransStatus.transaction_status, updatedStatus: result, source: "midtrans_api" } });
+      res.json({ success: true, data: { midtransStatus: synced.status, updatedStatus: synced, source: "midtrans_api" } });
     } catch {
       res.status(500).json({ success: false, error: "Gagal cek status pembayaran" });
     }

@@ -69,9 +69,9 @@ const heroSlides = [
 ];
 
 const floatingBadges = [
-  { icon: Shield, text: "Bergaransi Resmi", color: "from-sky-500 to-blue-600" },
-  { icon: Zap, text: "Hemat Listrik", color: "from-amber-400 to-orange-500" },
-  { icon: Star, text: "Rating 4.9/5", color: "from-emerald-400 to-teal-500" },
+  { icon: Shield, text: "Bergaransi Resmi", color: "from-sky-400 to-sky-600" },
+  { icon: Zap, text: "Hemat Listrik", color: "from-sky-400 to-sky-600" },
+  { icon: Star, text: "Rating 4.9/5", color: "from-sky-400 to-sky-600" },
 ];
 
 const statsData = [
@@ -116,29 +116,29 @@ const serviceIconMap: Record<string, React.ElementType> = {
 
 const serviceColorConfig = [
   { iconBg: "bg-sky-100", iconColor: "text-sky-600" },
-  { iconBg: "bg-blue-100", iconColor: "text-blue-600" },
-  { iconBg: "bg-indigo-100", iconColor: "text-indigo-600" },
-  { iconBg: "bg-violet-100", iconColor: "text-violet-600" },
-  { iconBg: "bg-emerald-100", iconColor: "text-emerald-600" },
-  { iconBg: "bg-amber-100", iconColor: "text-amber-600" },
+  { iconBg: "bg-sky-100", iconColor: "text-sky-600" },
+  { iconBg: "bg-sky-100", iconColor: "text-sky-600" },
+  { iconBg: "bg-sky-100", iconColor: "text-sky-600" },
+  { iconBg: "bg-sky-100", iconColor: "text-sky-600" },
+  { iconBg: "bg-sky-100", iconColor: "text-sky-600" },
 ];
 
 const serviceGradMap = [
   "from-sky-400 to-sky-600",
-  "from-blue-400 to-blue-600",
-  "from-indigo-400 to-indigo-600",
-  "from-violet-400 to-violet-600",
-  "from-emerald-400 to-emerald-600",
-  "from-amber-400 to-orange-500",
+  "from-sky-400 to-sky-600",
+  "from-sky-400 to-sky-600",
+  "from-sky-400 to-sky-600",
+  "from-sky-400 to-sky-600",
+  "from-sky-400 to-sky-600",
 ];
 
 const tagColors = [
   "bg-sky-500",
-  "bg-emerald-500",
-  "bg-orange-500",
-  "bg-violet-500",
-  "bg-teal-500",
-  "bg-pink-500",
+  "bg-sky-500",
+  "bg-sky-500",
+  "bg-sky-500",
+  "bg-sky-500",
+  "bg-sky-500",
 ];
 
 const whyUsReasons = [
@@ -154,35 +154,35 @@ const whyUsReasons = [
     title: "Respon Cepat",
     description:
       "Layanan darurat dengan waktu respons kurang dari 2 jam. Kami hadir ketika Anda paling membutuhkan.",
-    color: "bg-blue-500",
+    color: "bg-sky-500",
   },
   {
     icon: ShieldCheck,
     title: "Bergaransi Resmi",
     description:
       "Setiap produk dan layanan dilengkapi garansi resmi. Kami bertanggung jawab atas setiap pekerjaan kami.",
-    color: "bg-cyan-500",
+    color: "bg-sky-500",
   },
   {
     icon: ThumbsUp,
     title: "Harga Transparan",
     description:
       "Tidak ada biaya tersembunyi. Kami memberikan estimasi biaya yang jelas sebelum pekerjaan dimulai.",
-    color: "bg-indigo-500",
+    color: "bg-sky-500",
   },
   {
     icon: Wrench,
     title: "Spare Part Original",
     description:
       "Kami hanya menggunakan komponen original dari merek terpercaya untuk menjamin keawetan peralatan Anda.",
-    color: "bg-violet-500",
+    color: "bg-sky-500",
   },
   {
     icon: Phone,
     title: "After-Sale Support",
     description:
       "Layanan purna jual yang responsif. Tim kami siap membantu via WhatsApp, telepon, atau kunjungan langsung.",
-    color: "bg-emerald-500",
+    color: "bg-sky-500",
   },
 ];
 

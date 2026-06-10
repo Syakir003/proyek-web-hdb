@@ -12,7 +12,7 @@ const iconMap: Record<string, React.ElementType> = {
   gauge: Droplets,
 };
 
-const colorList = ["sky", "blue", "indigo", "violet"];
+const colorList = ["sky", "sky", "sky", "sky"];
 const colorMap: Record<string, { bg: string; text: string; light: string; badge: string }> = {
   sky:    { bg: "bg-sky-500",    text: "text-sky-600",    light: "bg-sky-50",    badge: "bg-sky-100 text-sky-700" },
   blue:   { bg: "bg-blue-500",   text: "text-blue-600",   light: "bg-blue-50",   badge: "bg-blue-100 text-blue-700" },
@@ -189,7 +189,7 @@ export default function Layanan({ setCurrentPage, onAddServiceToCart }: LayananP
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <h3 className="text-slate-800 font-bold text-lg">{service.name}</h3>
                     {isPerbaikan ? (
-                      <span className="text-xs font-semibold px-2.5 py-1 rounded-lg whitespace-nowrap bg-emerald-100 text-emerald-700">
+                      <span className="text-xs font-semibold px-2.5 py-1 rounded-lg whitespace-nowrap bg-slate-100 text-slate-600">
                         Harga Konsultasi
                       </span>
                     ) : (

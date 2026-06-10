@@ -6,10 +6,10 @@ import {
 } from "lucide-react";
 
 const values = [
-  { icon: Heart, title: "Peduli Pelanggan", desc: "Kepuasan pelanggan adalah yang utama. Setiap pekerjaan kami lakukan dengan hati.", color: "bg-rose-500" },
-  { icon: Zap, title: "Kerja Cepat & Tepat", desc: "Kami menghargai waktu pelanggan. Setiap tugas diselesaikan profesional dan efisien.", color: "bg-amber-500" },
+  { icon: Heart, title: "Peduli Pelanggan", desc: "Kepuasan pelanggan adalah yang utama. Setiap pekerjaan kami lakukan dengan hati.", color: "bg-sky-500" },
+  { icon: Zap, title: "Kerja Cepat & Tepat", desc: "Kami menghargai waktu pelanggan. Setiap tugas diselesaikan profesional dan efisien.", color: "bg-sky-500" },
   { icon: Shield, title: "Integritas Tinggi", desc: "Kejujuran dan transparansi dalam setiap tindakan adalah fondasi tim kami.", color: "bg-sky-500" },
-  { icon: Users, title: "Tim yang Solid", desc: "Kami tumbuh bersama. Setiap anggota tim adalah keluarga HDB Airconds.", color: "bg-emerald-500" },
+  { icon: Users, title: "Tim yang Solid", desc: "Kami tumbuh bersama. Setiap anggota tim adalah keluarga HDB Airconds.", color: "bg-sky-500" },
 ];
 
 const jobs = [

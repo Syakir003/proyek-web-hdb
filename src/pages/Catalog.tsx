@@ -388,8 +388,8 @@ export default function Catalog({ onCheckout, onAddToCart, onAddServiceToCart }:
                 <div className="bg-slate-50 border-t border-slate-100 py-20">
                   <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="text-center mb-14">
-                      <div className="inline-flex items-center gap-2 bg-amber-50 text-amber-600 px-4 py-1.5 rounded-full text-sm font-medium mb-4">
-                        <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                      <div className="inline-flex items-center gap-2 bg-sky-50 text-sky-600 px-4 py-1.5 rounded-full text-sm font-medium mb-4">
+                        <div className="w-1.5 h-1.5 rounded-full bg-sky-500" />
                         Sparepart & Material
                       </div>
                       <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-4">
@@ -405,7 +405,7 @@ export default function Catalog({ onCheckout, onAddToCart, onAddServiceToCart }:
                       return (
                         <div key={cat} className="mb-10">
                           <div className="flex items-center gap-3 mb-4">
-                            <Package className="w-5 h-5 text-amber-500" />
+                            <Package className="w-5 h-5 text-sky-500" />
                             <h3 className="text-lg font-bold text-slate-700">{cat}</h3>
                             <div className="flex-1 h-px bg-slate-200" />
                           </div>
@@ -416,14 +416,14 @@ export default function Catalog({ onCheckout, onAddToCart, onAddServiceToCart }:
                                 initial={{ opacity: 0, y: 10 }}
                                 whileInView={{ opacity: 1, y: 0 }}
                                 viewport={{ once: true }}
-                                className="bg-white rounded-2xl border border-slate-200 p-4 hover:shadow-md hover:border-amber-200 transition-all duration-200 group"
+                                className="bg-white rounded-2xl border border-slate-200 p-4 hover:shadow-md hover:border-sky-200 transition-all duration-200 group"
                               >
-                                <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center mb-3 group-hover:bg-amber-100 transition-colors">
-                                  <Package className="w-5 h-5 text-amber-500" />
+                                <div className="w-10 h-10 bg-sky-50 rounded-xl flex items-center justify-center mb-3 group-hover:bg-sky-100 transition-colors">
+                                  <Package className="w-5 h-5 text-sky-500" />
                                 </div>
                                 <p className="text-sm font-semibold text-slate-800 mb-1 leading-tight line-clamp-2">{item.name}</p>
                                 <p className="text-xs text-slate-400 mb-2">per {item.unit}</p>
-                                <p className="text-amber-600 font-bold text-sm">{formatRupiah(item.price)}</p>
+                                <p className="text-sky-600 font-bold text-sm">{formatRupiah(item.price)}</p>
                               </motion.div>
                             ))}
                           </div>
@@ -431,7 +431,7 @@ export default function Catalog({ onCheckout, onAddToCart, onAddServiceToCart }:
                       );
                     })}
 
-                    <div className="mt-8 bg-amber-50 border border-amber-100 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="mt-8 bg-sky-50 border border-sky-100 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
                       <div>
                         <p className="font-semibold text-slate-800 mb-1">Butuh sparepart tertentu?</p>
                         <p className="text-sm text-slate-500">Hubungi kami untuk ketersediaan dan harga terbaik.</p>
@@ -439,7 +439,7 @@ export default function Catalog({ onCheckout, onAddToCart, onAddServiceToCart }:
                       <a
                         href="https://wa.me/6281515729739?text=Halo%2C%20saya%20ingin%20tanya%20sparepart%20AC"
                         target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-5 py-2.5 rounded-xl font-semibold whitespace-nowrap transition-colors text-sm"
+                        className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-semibold whitespace-nowrap transition-colors text-sm"
                       >
                         <MessageCircle className="w-4 h-4" /> Tanya via WhatsApp
                       </a>
@@ -473,7 +473,7 @@ export default function Catalog({ onCheckout, onAddToCart, onAddServiceToCart }:
                       <div className="pt-4 border-t border-slate-100">
                         {service.name.toLowerCase().includes("perbaikan") ? (
                           <>
-                            <p className="text-sm font-semibold text-emerald-600 mb-3">Harga Konsultasi</p>
+                            <p className="text-sm font-semibold text-slate-500 mb-3">Harga Konsultasi</p>
                             <a
                               href={`https://wa.me/6281515729739?text=Halo%2C%20saya%20ingin%20konsultasi%20harga%20untuk%20layanan%20${encodeURIComponent(service.name)}`}
                               target="_blank" rel="noopener noreferrer"

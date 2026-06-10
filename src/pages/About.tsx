@@ -36,19 +36,19 @@ const services = [
     icon: Wrench,
     title: "Servis & Cuci",
     desc: "Perawatan rutin dan pembersihan menyeluruh untuk menjaga performa AC optimal sepanjang tahun.",
-    color: "from-blue-400 to-blue-600",
+    color: "from-sky-400 to-sky-600",
   },
   {
     icon: Zap,
     title: "Perbaikan AC",
     desc: "Diagnosa dan perbaikan segala masalah AC, dari yang ringan hingga kompleks, cepat dan tepat.",
-    color: "from-amber-400 to-orange-500",
+    color: "from-sky-400 to-sky-600",
   },
   {
     icon: CheckCircle,
     title: "Penjualan Unit",
     desc: "Tersedia berbagai merk AC berkualitas dengan harga kompetitif, garansi resmi, dan konsultasi gratis.",
-    color: "from-emerald-400 to-teal-500",
+    color: "from-sky-400 to-sky-600",
   },
 ];
 
