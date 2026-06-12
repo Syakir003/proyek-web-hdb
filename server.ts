@@ -436,6 +436,16 @@ async function startServer() {
   // & express-rate-limit tidak error (ERR_ERL_UNEXPECTED_X_FORWARDED_FOR)
   app.set("trust proxy", 1);
 
+  // Canonical host: redirect apex (hdbairconds.id) -> www.hdbairconds.id
+  // supaya sinyal SEO terkonsolidasi ke satu domain (301 = permanen).
+  // Hanya GET agar webhook/API POST (mis. Midtrans) tidak ikut di-redirect.
+  app.use((req, res, next) => {
+    if (req.method === "GET" && req.hostname === "hdbairconds.id") {
+      return res.redirect(301, `https://www.hdbairconds.id${req.originalUrl}`);
+    }
+    next();
+  });
+
   // Security headers â€” izinkan gambar dari https eksternal (avatar dll),
   // proteksi helmet lain tetap default (script tetap 'self')
   app.use(helmet({
