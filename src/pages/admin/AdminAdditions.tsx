@@ -3,6 +3,11 @@ import React, { useState, useEffect } from 'react';
 import { Check, X, Send, ExternalLink, RefreshCw } from 'lucide-react';
 import { OrderAddition } from '../../types/additions';
 
+// Base URL untuk link yang dikirim ke customer. Default ke domain produksi
+// supaya link approval TIDAK pernah jadi localhost walau admin membukanya dari
+// localhost saat testing. Override lewat VITE_PUBLIC_URL kalau perlu.
+const PUBLIC_BASE_URL = (import.meta as any).env?.VITE_PUBLIC_URL || 'https://www.hdbairconds.id';
+
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   pending_admin:      { label: 'Menunggu Review', color: 'bg-amber-50 text-amber-600' },
   admin_approved:     { label: 'Disetujui Admin', color: 'bg-sky-50 text-sky-600' },
@@ -123,7 +128,7 @@ export default function AdminAdditions({ token }: { token: string }) {
                         </button>
                       </>)}
                       {add.status === 'pending_customer' && add.customer_token && (
-                        <a href={`https://wa.me/?text=${encodeURIComponent(`Link persetujuan: ${window.location.origin}/tambahan/${add.customer_token}`)}`}
+                        <a href={`https://wa.me/?text=${encodeURIComponent(`Link persetujuan: ${PUBLIC_BASE_URL}/tambahan/${add.customer_token}`)}`}
                            target="_blank" rel="noopener noreferrer"
                            className="flex items-center gap-1.5 bg-emerald-50 text-emerald-600 border border-emerald-200 px-3 py-1.5 rounded-lg text-sm hover:bg-emerald-100">
                           <Send className="w-3.5 h-3.5" /> Kirim Ulang Link

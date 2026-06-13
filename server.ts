@@ -110,6 +110,15 @@ if (IS_PRODUCTION) {
 }
 
 // =========================
+// PUBLIC BASE URL
+// =========================
+// Dipakai untuk semua link yang dikirim ke customer (WA approval tambahan,
+// link invoice) dan callback "finish" Midtrans. Default ke domain produksi
+// supaya link TIDAK pernah jadi localhost walau BASE_URL belum di-set di
+// environment (mis. di Railway). Untuk testing lokal, set BASE_URL=http://localhost:5173 di .env.
+const PUBLIC_BASE_URL = (process.env.BASE_URL || process.env.SITE_URL || "https://www.hdbairconds.id").replace(/\/+$/, "");
+
+// =========================
 // MIDTRANS SETUP + VALIDATION
 // =========================
 const MIDTRANS_IS_PRODUCTION = process.env.MIDTRANS_IS_PRODUCTION === "true";
@@ -2179,7 +2188,7 @@ async function startServer() {
           [req.params.id]
         );
         const add = addRows[0];
-        const approvalUrl = `${process.env.BASE_URL || 'http://localhost:5173'}/tambahan/${token}`;
+        const approvalUrl = `${PUBLIC_BASE_URL}/tambahan/${token}`;
         const waMsg = encodeURIComponent(
           `Halo ${add.customer_name}, ada penambahan material/jasa untuk order Anda senilai Rp${Number(add.total).toLocaleString('id-ID')}.\n\nSilakan cek dan setujui di:\n${approvalUrl}`
         );
@@ -2277,7 +2286,7 @@ async function startServer() {
       const total = items.reduce((s: number, i: any) => s + Number(i.subtotal), 0);
 
       const midtransOrderId = `ADD-${add.id}-${Date.now()}`;
-      const baseUrl = process.env.BASE_URL || 'http://localhost:5173';
+      const baseUrl = PUBLIC_BASE_URL;
       const transaction = await snap.createTransaction({
         transaction_details: { order_id: midtransOrderId, gross_amount: Math.round(total) },
         customer_details: { first_name: add.customer_name, phone: add.phone },
@@ -2509,7 +2518,7 @@ async function startServer() {
       const invoiceNumber = add.invoice_number || await ensureAdditionInvoice(req.params.id);
       if (!invoiceNumber) return res.status(500).json({ success: false, message: 'Gagal membuat nomor invoice' });
 
-      const baseUrl = process.env.BASE_URL || 'http://localhost:5173';
+      const baseUrl = PUBLIC_BASE_URL;
       const invoiceUrl = `${baseUrl}/invoice/${add.customer_token}`;
       const waMsg = encodeURIComponent(
         `Halo ${add.customer_name}, invoice untuk tambahan order Anda (${invoiceNumber}) sudah tersedia.\n\nLihat invoice di:\n${invoiceUrl}`
@@ -2562,7 +2571,7 @@ async function startServer() {
         return num;
       });
 
-      const baseUrl = process.env.BASE_URL || 'http://localhost:5173';
+      const baseUrl = PUBLIC_BASE_URL;
       const invoiceUrl = `${baseUrl}/order-invoice/${invoiceToken}`;
       const waMsg = encodeURIComponent(
         `Halo ${order.customer_name}, invoice untuk order Anda (${invoiceNumber}) sudah tersedia.\n\nLihat invoice di:\n${invoiceUrl}`
