@@ -39,6 +39,22 @@ const serviceDetails: Record<string, { tagline: string; features: string[] }> = 
   },
 };
 
+// Cocokkan detail & ikon dari NAMA layanan (stabil), bukan dari kolom `icon`.
+// Form admin mengirim ulang `icon` tiap kali Simpan, jadi `icon` rawan ketimpa
+// walau yang diubah cuma harga — kalau dipakai sebagai kunci, detail bisa hilang.
+const nameToIconKey: { keywords: string[]; icon: string }[] = [
+  { keywords: ["cuci"], icon: "droplets" },
+  { keywords: ["freon"], icon: "gauge" },
+  { keywords: ["bongkar", "pasang", "instalasi"], icon: "wrench" },
+  { keywords: ["perbaikan", "kelistrikan", "maintenance"], icon: "zap" },
+];
+
+function resolveIconKey(service: { name: string; icon: string }): string {
+  const name = (service.name || "").toLowerCase();
+  const match = nameToIconKey.find((m) => m.keywords.some((k) => name.includes(k)));
+  return match?.icon ?? service.icon;
+}
+
 const staticServices = [
   { id: "s1", name: "Cuci AC (Cleaning)", price: 90000, description: "Pembersihan menyeluruh unit indoor dan outdoor.", icon: "droplets" },
   { id: "s2", name: "Tambah / Isi Freon", price: 150000, description: "Pengecekan tekanan dan pengisian freon.", icon: "gauge" },
@@ -170,8 +186,9 @@ export default function Layanan({ setCurrentPage, onAddServiceToCart }: LayananP
             {services.map((service, i) => {
               const colorKey = colorList[i % colorList.length];
               const c = colorMap[colorKey];
-              const Icon = iconMap[service.icon] ?? Wrench;
-              const detail = serviceDetails[service.icon] ?? { tagline: "", features: [] };
+              const iconKey = resolveIconKey(service);
+              const Icon = iconMap[iconKey] ?? Wrench;
+              const detail = serviceDetails[iconKey] ?? { tagline: "", features: [] };
               const isPerbaikan = service.name.toLowerCase().includes("perbaikan");
               const isCuciAC = service.name.toLowerCase().includes("cuci");
               return (
