@@ -8,6 +8,7 @@ export interface Product {
   image: string;
   description: string;
   features: string[];
+  stock?: number;
 }
 
 export interface Service {

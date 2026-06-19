@@ -52,6 +52,12 @@ function generateProductAlt(name: string, brand?: string, type?: string, capacit
   return `${parts} - jual & jasa pasang AC Mojokerto HDB Airconds`;
 }
 
+// Stok dari form: bilangan bulat >= 0, default 0 bila kosong/invalid.
+function parseStock(raw: any): number {
+  const n = Number.parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
 function slugify(text: string): string {
   return text
     .toLowerCase()
@@ -721,11 +727,12 @@ async function startServer() {
       const optimized = await optimizeImage(req.file?.buffer);
       const altText = image_alt?.trim() || generateProductAlt(name, brand, type, capacity);
       const slug = slugify(`${name} ${brand} ${capacity}`.trim()) || slugify(name);
+      const stock = parseStock(req.body.stock);
 
       await pool.query(
-        `INSERT INTO products (id, name, slug, brand, type, capacity, price, description, image, image_mime, image_alt)
-         VALUES (UUID(),?,?,?,?,?,?,?,?,?,?)`,
-        [name, slug, brand, type, capacity, price, description, optimized, optimized ? "image/webp" : null, altText],
+        `INSERT INTO products (id, name, slug, brand, type, capacity, price, stock, description, image, image_mime, image_alt)
+         VALUES (UUID(),?,?,?,?,?,?,?,?,?,?,?)`,
+        [name, slug, brand, type, capacity, price, stock, description, optimized, optimized ? "image/webp" : null, altText],
       );
       res.json({ success: true, slug, image_alt: altText });
     } catch (err) {
@@ -740,20 +747,21 @@ async function startServer() {
     try {
       const altText = image_alt?.trim() || generateProductAlt(name, brand, type, capacity);
       const slug = slugify(`${name} ${brand} ${capacity}`.trim()) || slugify(name);
+      const stock = parseStock(req.body.stock);
 
       if (req.file?.buffer) {
         // Update dengan gambar baru: auto-optimize
         const optimized = await optimizeImage(req.file.buffer);
         await pool.query(
-          `UPDATE products SET name=?, slug=?, brand=?, type=?, capacity=?, price=?, description=?,
+          `UPDATE products SET name=?, slug=?, brand=?, type=?, capacity=?, price=?, stock=?, description=?,
            image=?, image_mime=?, image_alt=? WHERE id=?`,
-          [name, slug, brand, type, capacity, price, description, optimized, "image/webp", altText, id],
+          [name, slug, brand, type, capacity, price, stock, description, optimized, "image/webp", altText, id],
         );
       } else {
         // Update tanpa gambar baru
         await pool.query(
-          `UPDATE products SET name=?, slug=?, brand=?, type=?, capacity=?, price=?, description=?, image_alt=? WHERE id=?`,
-          [name, slug, brand, type, capacity, price, description, altText, id],
+          `UPDATE products SET name=?, slug=?, brand=?, type=?, capacity=?, price=?, stock=?, description=?, image_alt=? WHERE id=?`,
+          [name, slug, brand, type, capacity, price, stock, description, altText, id],
         );
       }
       res.json({ success: true, slug, image_alt: altText });

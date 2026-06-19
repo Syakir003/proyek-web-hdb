@@ -1,5 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Trash2, Edit, X } from 'lucide-react';
+import { Plus, Search, Trash2, Edit, X, AlertTriangle } from 'lucide-react';
+
+// Ambang stok menipis (samakan dengan Catalog).
+const LOW_STOCK = 5;
+
+const stockMeta = (raw: any) => {
+  const n = Number(raw) || 0;
+  if (n <= 0) return { n, label: 'Habis', cls: 'bg-red-50 text-red-600 border-red-200' };
+  if (n <= LOW_STOCK) return { n, label: 'Menipis', cls: 'bg-amber-50 text-amber-700 border-amber-200' };
+  return { n, label: 'Aman', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+};
 
 export default function AdminProducts({ token }: { token: string }) {
   const [products, setProducts] = useState<any[]>([]);
@@ -11,7 +21,7 @@ export default function AdminProducts({ token }: { token: string }) {
 
   // Form state
   const [formData, setFormData] = useState({
-    name: '', brand: '', type: '', capacity: '', price: '', description: '', image: '', image_alt: ''
+    name: '', brand: '', type: '', capacity: '', price: '', stock: '', description: '', image: '', image_alt: ''
   });
 
   useEffect(() => {
@@ -54,6 +64,7 @@ export default function AdminProducts({ token }: { token: string }) {
       type: product.type,
       capacity: product.capacity,
       price: product.price.toString(),
+      stock: (product.stock ?? 0).toString(),
       description: product.description,
       image: product.image,
       image_alt: product.image_alt || '',
@@ -75,6 +86,7 @@ export default function AdminProducts({ token }: { token: string }) {
       submitData.append('type', formData.type);
       submitData.append('capacity', formData.capacity);
       submitData.append('price', formData.price);
+      submitData.append('stock', formData.stock || '0');
       submitData.append('description', formData.description);
       submitData.append('image_alt', formData.image_alt);
 
@@ -93,7 +105,7 @@ export default function AdminProducts({ token }: { token: string }) {
         setShowAddModal(false);
         setEditingId(null);
         setImageFile(null);
-        setFormData({ name: '', brand: '', type: '', capacity: '', price: '', description: '', image: '', image_alt: '' });
+        setFormData({ name: '', brand: '', type: '', capacity: '', price: '', stock: '', description: '', image: '', image_alt: '' });
         fetchProducts();
       }
     } catch (error) {
@@ -104,7 +116,7 @@ export default function AdminProducts({ token }: { token: string }) {
   const openAddModal = () => {
     setEditingId(null);
     setImageFile(null);
-    setFormData({ name: '', brand: '', type: '', capacity: '', price: '', description: '', image: '', image_alt: '' });
+    setFormData({ name: '', brand: '', type: '', capacity: '', price: '', stock: '', description: '', image: '', image_alt: '' });
     setShowAddModal(true);
   };
 
@@ -114,8 +126,23 @@ export default function AdminProducts({ token }: { token: string }) {
 
   const filteredProducts = products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
+  const outCount = products.filter(p => (Number(p.stock) || 0) <= 0).length;
+  const lowCount = products.filter(p => { const n = Number(p.stock) || 0; return n > 0 && n <= LOW_STOCK; }).length;
+
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      {(outCount > 0 || lowCount > 0) && (
+        <div className="px-6 py-3 bg-amber-50 border-b border-amber-200 flex items-start gap-2 text-sm text-amber-800">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          <span>
+            Perhatian stok:
+            {outCount > 0 && <strong className="mx-1">{outCount} produk habis</strong>}
+            {outCount > 0 && lowCount > 0 && 'dan'}
+            {lowCount > 0 && <strong className="mx-1">{lowCount} produk menipis</strong>}
+            (≤ {LOW_STOCK}). Segera perbarui stok.
+          </span>
+        </div>
+      )}
       <div className="p-6 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-xl font-bold text-slate-900">Kelola Produk</h2>
         <div className="flex gap-3 w-full sm:w-auto">
@@ -145,14 +172,15 @@ export default function AdminProducts({ token }: { token: string }) {
               <th className="p-4 font-medium">Produk</th>
               <th className="p-4 font-medium">Merk & Tipe</th>
               <th className="p-4 font-medium">Harga</th>
+              <th className="p-4 font-medium">Stok</th>
               <th className="p-4 font-medium text-right">Aksi</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
             {loading ? (
-              <tr><td colSpan={4} className="p-8 text-center text-slate-500">Memuat data...</td></tr>
+              <tr><td colSpan={5} className="p-8 text-center text-slate-500">Memuat data...</td></tr>
             ) : filteredProducts.length === 0 ? (
-              <tr><td colSpan={4} className="p-8 text-center text-slate-500">Tidak ada produk ditemukan.</td></tr>
+              <tr><td colSpan={5} className="p-8 text-center text-slate-500">Tidak ada produk ditemukan.</td></tr>
             ) : (
               filteredProducts.map((product) => (
                 <tr key={product.id} className="hover:bg-slate-50 transition-colors">
@@ -169,6 +197,17 @@ export default function AdminProducts({ token }: { token: string }) {
                     <div className="text-xs text-slate-500">{product.type} • {product.capacity}</div>
                   </td>
                   <td className="p-4 text-sm font-semibold text-slate-900">{formatRupiah(product.price)}</td>
+                  <td className="p-4">
+                    {(() => {
+                      const s = stockMeta(product.stock);
+                      return (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-slate-900 tabular-nums">{s.n}</span>
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-md border ${s.cls}`}>{s.label}</span>
+                        </div>
+                      );
+                    })()}
+                  </td>
                   <td className="p-4 text-right space-x-2">
                     <button onClick={() => handleEdit(product)} className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors" title="Edit">
                       <Edit className="w-4 h-4" />
@@ -213,6 +252,11 @@ export default function AdminProducts({ token }: { token: string }) {
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Harga (Rp)</label>
                   <input required type="number" className="w-full border border-slate-300 rounded-lg px-3 py-2" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Stok</label>
+                  <input type="number" min="0" step="1" placeholder="0" className="w-full border border-slate-300 rounded-lg px-3 py-2" value={formData.stock} onChange={e => setFormData({...formData, stock: e.target.value})} />
+                  <p className="text-xs text-slate-500 mt-1">Peringatan otomatis muncul saat stok ≤ {LOW_STOCK}.</p>
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Gambar Produk</label>

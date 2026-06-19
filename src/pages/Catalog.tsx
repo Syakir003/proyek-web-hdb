@@ -14,6 +14,12 @@ interface CatalogProps {
   onAddServiceToCart?: (service: { id: string; name: string; price: number; description: string; icon: string }) => void;
 }
 
+// Ambang stok menipis (samakan dengan AdminProducts).
+const LOW_STOCK_THRESHOLD = 5;
+const isOutOfStock = (p: Product) => typeof p.stock === "number" && p.stock <= 0;
+const isLowStock = (p: Product) =>
+  typeof p.stock === "number" && p.stock > 0 && p.stock <= LOW_STOCK_THRESHOLD;
+
 const getServiceIcon = (iconName: string) => {
   switch (iconName) {
     case "snowflake": return <Snowflake className="w-6 h-6" />;
@@ -89,6 +95,7 @@ export default function Catalog({ onCheckout, onAddToCart, onAddServiceToCart }:
             id: p.id.toString(), name: p.name, brand: p.brand, type: p.type,
             capacity: p.capacity, price: parseFloat(p.price), description: p.description,
             features: ["Garansi Resmi", "Pemasangan Profesional"], image: p.image,
+            stock: Number(p.stock) || 0,
           }));
           setProducts(apiProducts);
         }
@@ -161,8 +168,16 @@ export default function Catalog({ onCheckout, onAddToCart, onAddServiceToCart }:
                     <span className="px-3 py-1 bg-slate-100 text-slate-600 text-xs font-semibold rounded-lg">{selectedProduct.capacity}</span>
                   </div>
                   <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-3">{selectedProduct.name}</h1>
-                  <div className="mb-2">
+                  <div className="mb-2 flex items-center gap-3 flex-wrap">
                     <span className="text-3xl font-bold text-sky-600">{formatRupiah(selectedProduct.price)}</span>
+                    {isOutOfStock(selectedProduct) && (
+                      <span className="bg-red-50 text-red-600 border border-red-200 text-xs font-semibold px-2.5 py-1 rounded-lg">Stok Habis</span>
+                    )}
+                    {isLowStock(selectedProduct) && (
+                      <span className="bg-amber-50 text-amber-700 border border-amber-200 text-xs font-semibold px-2.5 py-1 rounded-lg">
+                        Stok Menipis — sisa {selectedProduct.stock}
+                      </span>
+                    )}
                   </div>
                   <p className="text-slate-500 text-sm mb-6 leading-relaxed">{selectedProduct.description}</p>
                   <div className="mb-8">
@@ -178,14 +193,23 @@ export default function Catalog({ onCheckout, onAddToCart, onAddServiceToCart }:
                       ))}
                     </ul>
                   </div>
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => onCheckout?.(selectedProduct)} className="flex-1 bg-sky-500 hover:bg-sky-600 text-white py-3.5 px-6 rounded-xl font-semibold transition-colors shadow-lg shadow-sky-500/30 flex justify-center items-center gap-2">
-                      <ShoppingCart className="w-5 h-5" /> Pesan Sekarang
-                    </motion.button>
-                    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => onAddToCart?.(selectedProduct)} className="flex-1 bg-white border-2 border-sky-500 text-sky-600 py-3.5 px-6 rounded-xl font-semibold hover:bg-sky-50 transition-colors flex justify-center items-center gap-2">
-                      Tambah ke Keranjang
-                    </motion.button>
-                  </div>
+                  {isOutOfStock(selectedProduct) ? (
+                    <div className="flex flex-col gap-2">
+                      <button disabled className="w-full bg-slate-200 text-slate-400 py-3.5 px-6 rounded-xl font-semibold cursor-not-allowed flex justify-center items-center gap-2">
+                        <ShoppingCart className="w-5 h-5" /> Stok Habis
+                      </button>
+                      <p className="text-sm text-slate-500 text-center">Produk sedang kosong. Hubungi kami untuk info ketersediaan.</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => onCheckout?.(selectedProduct)} className="flex-1 bg-sky-500 hover:bg-sky-600 text-white py-3.5 px-6 rounded-xl font-semibold transition-colors shadow-lg shadow-sky-500/30 flex justify-center items-center gap-2">
+                        <ShoppingCart className="w-5 h-5" /> Pesan Sekarang
+                      </motion.button>
+                      <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => onAddToCart?.(selectedProduct)} className="flex-1 bg-white border-2 border-sky-500 text-sky-600 py-3.5 px-6 rounded-xl font-semibold hover:bg-sky-50 transition-colors flex justify-center items-center gap-2">
+                        Tambah ke Keranjang
+                      </motion.button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -331,6 +355,12 @@ export default function Catalog({ onCheckout, onAddToCart, onAddServiceToCart }:
                           <button onClick={() => toggleWishlist(product.id)} className={`absolute top-3 right-3 w-8 h-8 rounded-lg flex items-center justify-center transition-all ${wishlist.includes(product.id) ? "bg-red-500 text-white" : "bg-white/80 text-slate-500 hover:text-red-500"}`}>
                             <Heart className={`w-4 h-4 ${wishlist.includes(product.id) ? "fill-white" : ""}`} />
                           </button>
+                          {isOutOfStock(product) && (
+                            <span className="absolute bottom-3 left-3 bg-red-500 text-white text-xs font-semibold px-2.5 py-1 rounded-lg shadow-md">Stok Habis</span>
+                          )}
+                          {isLowStock(product) && (
+                            <span className="absolute bottom-3 left-3 bg-amber-400 text-amber-950 text-xs font-semibold px-2.5 py-1 rounded-lg shadow-md">Stok Menipis</span>
+                          )}
                         </div>
 
                         {/* Content */}
@@ -357,9 +387,15 @@ export default function Catalog({ onCheckout, onAddToCart, onAddServiceToCart }:
                               <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setSelectedProduct(product)} className="px-3 py-2 rounded-xl border border-sky-200 text-sky-600 hover:bg-sky-50 text-sm font-medium transition-colors">
                                 Detail
                               </motion.button>
-                              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => onCheckout?.(product)} className="flex items-center gap-1.5 bg-sky-500 hover:bg-sky-600 text-white px-3 py-2 rounded-xl text-sm font-medium transition-colors shadow-md shadow-sky-500/20">
-                                <ShoppingCart className="w-4 h-4" /> Pesan
-                              </motion.button>
+                              {isOutOfStock(product) ? (
+                                <button disabled className="flex items-center gap-1.5 bg-slate-200 text-slate-400 px-3 py-2 rounded-xl text-sm font-medium cursor-not-allowed">
+                                  <ShoppingCart className="w-4 h-4" /> Habis
+                                </button>
+                              ) : (
+                                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => onCheckout?.(product)} className="flex items-center gap-1.5 bg-sky-500 hover:bg-sky-600 text-white px-3 py-2 rounded-xl text-sm font-medium transition-colors shadow-md shadow-sky-500/20">
+                                  <ShoppingCart className="w-4 h-4" /> Pesan
+                                </motion.button>
+                              )}
                             </div>
                           </div>
                         </div>
