@@ -287,6 +287,31 @@ async function testDB() {
     )
   `);
 
+  // â”€â”€ ALAMAT TERSIMPAN (beberapa alamat per user) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_addresses (
+      id         INT AUTO_INCREMENT PRIMARY KEY,
+      user_id    INT NOT NULL,
+      label      VARCHAR(50) NOT NULL,
+      address    TEXT NOT NULL,
+      is_default TINYINT(1) NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      INDEX idx_ua_user_id (user_id)
+    )
+  `);
+
+  // Seed sekali (idempotent): pindahkan users.address lama jadi alamat "Utama"
+  // agar data alamat yang sudah ada tidak hilang saat pindah ke multi-alamat.
+  await pool.query(`
+    INSERT INTO user_addresses (user_id, label, address, is_default)
+    SELECT u.id, 'Utama', u.address, 1
+    FROM users u
+    WHERE u.address IS NOT NULL AND TRIM(u.address) <> ''
+      AND NOT EXISTS (SELECT 1 FROM user_addresses a WHERE a.user_id = u.id)
+  `);
+
   // â”€â”€ ORDER ADDITIONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   await pool.query(`
     CREATE TABLE IF NOT EXISTS material_catalog (
@@ -1302,23 +1327,23 @@ async function startServer() {
   });
 
   // =========================
-  // USER PROFILE
+  // USER PROFILE (DATA DIRI)
   // =========================
-  // Data diri tersimpan agar user tidak perlu mengetik ulang saat checkout.
-  // Endpoint ini HANYA mengelola 3 kolom (name, phone, address); kolom lain
-  // (role, password, dll) tidak boleh diubah dari sini.
+  // Data diri = nama + WhatsApp (tunggal). Alamat dikelola terpisah di
+  // /api/user/addresses (beberapa alamat). Endpoint ini TIDAK menyentuh
+  // kolom lain (role, password, dll).
   app.get("/api/user/profile", authenticateToken, async (req: any, res) => {
     try {
       if (!req.user?.id) return res.status(401).json({ success: false, error: "User tidak teridentifikasi" });
       const [rows]: any = await pool.query(
-        "SELECT name, phone, address FROM users WHERE id=?",
+        "SELECT name, phone FROM users WHERE id=?",
         [req.user.id],
       );
       if (!rows.length) return res.status(404).json({ success: false, error: "Profil tidak ditemukan" });
       const u = rows[0];
       res.json({
         success: true,
-        data: { name: u.name || "", phone: u.phone || "", address: u.address || "" },
+        data: { name: u.name || "", phone: u.phone || "" },
       });
     } catch {
       res.status(500).json({ success: false, error: "Gagal mengambil profil" });
@@ -1331,7 +1356,6 @@ async function startServer() {
 
       const name = typeof req.body.name === "string" ? req.body.name.trim() : "";
       const phone = typeof req.body.phone === "string" ? req.body.phone.trim() : "";
-      const address = typeof req.body.address === "string" ? req.body.address.trim() : "";
 
       if (!name || name.length > 100) {
         return res.status(400).json({ success: false, error: "Nama wajib diisi (maks 100 karakter)" });
@@ -1342,18 +1366,163 @@ async function startServer() {
       if (phone && !/^[0-9+\-\s]+$/.test(phone)) {
         return res.status(400).json({ success: false, error: "Nomor WhatsApp hanya boleh angka, +, -, dan spasi" });
       }
-      if (address.length > 1000) {
-        return res.status(400).json({ success: false, error: "Alamat terlalu panjang (maks 1000 karakter)" });
-      }
 
       await pool.query(
-        "UPDATE users SET name=?, phone=?, address=? WHERE id=?",
-        [name, phone || null, address || null, req.user.id],
+        "UPDATE users SET name=?, phone=? WHERE id=?",
+        [name, phone || null, req.user.id],
       );
 
-      res.json({ success: true, data: { name, phone, address } });
+      res.json({ success: true, data: { name, phone } });
     } catch {
       res.status(500).json({ success: false, error: "Gagal menyimpan profil" });
+    }
+  });
+
+  // =========================
+  // USER ADDRESSES (BEBERAPA ALAMAT)
+  // =========================
+  // Validasi label + alamat dipakai create & update.
+  const validateAddressInput = (
+    body: any,
+  ): { label: string; address: string } | { error: string } => {
+    const label = typeof body.label === "string" ? body.label.trim() : "";
+    const address = typeof body.address === "string" ? body.address.trim() : "";
+    if (!label || label.length > 50) return { error: "Label wajib diisi (maks 50 karakter)" };
+    if (!address || address.length > 1000) return { error: "Alamat wajib diisi (maks 1000 karakter)" };
+    return { label, address };
+  };
+
+  // Sinkronkan users.address ke alamat utama (kompat aplikasi Android yang
+  // mungkin membaca kolom users.address).
+  const syncDefaultAddressToUser = async (userId: number) => {
+    const [rows]: any = await pool.query(
+      "SELECT address FROM user_addresses WHERE user_id=? AND is_default=1 LIMIT 1",
+      [userId],
+    );
+    const addr = rows.length ? rows[0].address : null;
+    await pool.query("UPDATE users SET address=? WHERE id=?", [addr, userId]);
+  };
+
+  app.get("/api/user/addresses", authenticateToken, async (req: any, res) => {
+    try {
+      if (!req.user?.id) return res.status(401).json({ success: false, error: "User tidak teridentifikasi" });
+      const [rows]: any = await pool.query(
+        "SELECT id, label, address, is_default FROM user_addresses WHERE user_id=? ORDER BY is_default DESC, id ASC",
+        [req.user.id],
+      );
+      res.json({
+        success: true,
+        data: rows.map((r: any) => ({
+          id: r.id,
+          label: r.label,
+          address: r.address,
+          is_default: !!r.is_default,
+        })),
+      });
+    } catch {
+      res.status(500).json({ success: false, error: "Gagal mengambil alamat" });
+    }
+  });
+
+  app.post("/api/user/addresses", authenticateToken, async (req: any, res) => {
+    try {
+      if (!req.user?.id) return res.status(401).json({ success: false, error: "User tidak teridentifikasi" });
+      const v = validateAddressInput(req.body);
+      if ("error" in v) return res.status(400).json({ success: false, error: v.error });
+
+      // Alamat pertama otomatis jadi utama.
+      const [cntRows]: any = await pool.query(
+        "SELECT COUNT(*) as cnt FROM user_addresses WHERE user_id=?",
+        [req.user.id],
+      );
+      const isFirst = Number(cntRows[0].cnt) === 0;
+
+      const [ins]: any = await pool.query(
+        "INSERT INTO user_addresses (user_id, label, address, is_default) VALUES (?,?,?,?)",
+        [req.user.id, v.label, v.address, isFirst ? 1 : 0],
+      );
+      if (isFirst) await syncDefaultAddressToUser(req.user.id);
+
+      res.json({
+        success: true,
+        data: { id: ins.insertId, label: v.label, address: v.address, is_default: isFirst },
+      });
+    } catch {
+      res.status(500).json({ success: false, error: "Gagal menambah alamat" });
+    }
+  });
+
+  app.put("/api/user/addresses/:id", authenticateToken, async (req: any, res) => {
+    try {
+      if (!req.user?.id) return res.status(401).json({ success: false, error: "User tidak teridentifikasi" });
+      const v = validateAddressInput(req.body);
+      if ("error" in v) return res.status(400).json({ success: false, error: v.error });
+
+      const [own]: any = await pool.query(
+        "SELECT is_default FROM user_addresses WHERE id=? AND user_id=?",
+        [req.params.id, req.user.id],
+      );
+      if (!own.length) return res.status(404).json({ success: false, error: "Alamat tidak ditemukan" });
+
+      await pool.query(
+        "UPDATE user_addresses SET label=?, address=? WHERE id=? AND user_id=?",
+        [v.label, v.address, req.params.id, req.user.id],
+      );
+      if (own[0].is_default) await syncDefaultAddressToUser(req.user.id);
+
+      res.json({
+        success: true,
+        data: { id: Number(req.params.id), label: v.label, address: v.address, is_default: !!own[0].is_default },
+      });
+    } catch {
+      res.status(500).json({ success: false, error: "Gagal memperbarui alamat" });
+    }
+  });
+
+  app.delete("/api/user/addresses/:id", authenticateToken, async (req: any, res) => {
+    try {
+      if (!req.user?.id) return res.status(401).json({ success: false, error: "User tidak teridentifikasi" });
+      const [own]: any = await pool.query(
+        "SELECT is_default FROM user_addresses WHERE id=? AND user_id=?",
+        [req.params.id, req.user.id],
+      );
+      if (!own.length) return res.status(404).json({ success: false, error: "Alamat tidak ditemukan" });
+
+      await pool.query("DELETE FROM user_addresses WHERE id=? AND user_id=?", [req.params.id, req.user.id]);
+
+      // Kalau yang dihapus alamat utama, promosikan alamat lain (terlama) jadi utama.
+      if (own[0].is_default) {
+        const [next]: any = await pool.query(
+          "SELECT id FROM user_addresses WHERE user_id=? ORDER BY id ASC LIMIT 1",
+          [req.user.id],
+        );
+        if (next.length) {
+          await pool.query("UPDATE user_addresses SET is_default=1 WHERE id=?", [next[0].id]);
+        }
+        await syncDefaultAddressToUser(req.user.id);
+      }
+      res.json({ success: true });
+    } catch {
+      res.status(500).json({ success: false, error: "Gagal menghapus alamat" });
+    }
+  });
+
+  app.put("/api/user/addresses/:id/default", authenticateToken, async (req: any, res) => {
+    try {
+      if (!req.user?.id) return res.status(401).json({ success: false, error: "User tidak teridentifikasi" });
+      const [own]: any = await pool.query(
+        "SELECT id FROM user_addresses WHERE id=? AND user_id=?",
+        [req.params.id, req.user.id],
+      );
+      if (!own.length) return res.status(404).json({ success: false, error: "Alamat tidak ditemukan" });
+
+      await pool.query("UPDATE user_addresses SET is_default=0 WHERE user_id=?", [req.user.id]);
+      await pool.query("UPDATE user_addresses SET is_default=1 WHERE id=? AND user_id=?", [req.params.id, req.user.id]);
+      await syncDefaultAddressToUser(req.user.id);
+
+      res.json({ success: true });
+    } catch {
+      res.status(500).json({ success: false, error: "Gagal mengatur alamat utama" });
     }
   });
 

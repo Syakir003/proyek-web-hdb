@@ -25,6 +25,13 @@ interface CheckoutProps {
   authToken?: string | null;
 }
 
+interface SavedAddress {
+  id: number;
+  label: string;
+  address: string;
+  is_default: boolean;
+}
+
 const getServiceIcon = (iconName?: string) => {
   switch (iconName) {
     case "snowflake": return <Snowflake className="w-6 h-6 text-sky-500" />;
@@ -64,29 +71,45 @@ export default function Checkout({
   const [errorMessage, setErrorMessage] = useState("");
   const [orderedCount, setOrderedCount] = useState(0);
   const [prefilledFromProfile, setPrefilledFromProfile] = useState(false);
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<number | "manual" | null>(null);
   const isSubmittingRef = React.useRef(false);
 
-  // Pre-fill data diri dari profil user agar tidak perlu mengetik ulang.
-  // Per-pesanan: perubahan di form ini TIDAK menimpa profil tersimpan
-  // (profil hanya diubah lewat halaman Profil).
+  // Pre-fill data diri (nama + WhatsApp) dari profil, lalu ambil daftar alamat
+  // tersimpan (alamat utama terpilih otomatis). Per-pesanan: perubahan di form
+  // ini TIDAK menimpa data tersimpan (profil & alamat diubah di halaman Profil).
   useEffect(() => {
     if (!authToken) return;
     let active = true;
     (async () => {
       try {
-        const res = await fetch("/api/user/profile", {
-          headers: { Authorization: `Bearer ${authToken}` },
-        });
-        const data = await res.json();
-        if (!active || !res.ok || !data.success) return;
-        const p = data.data || {};
-        if (p.name || p.phone || p.address) {
-          setFormData((prev) => ({
-            ...prev,
-            customerName: prev.customerName || p.name || "",
-            phone: prev.phone || p.phone || "",
-            address: prev.address || p.address || "",
-          }));
+        const headers = { Authorization: `Bearer ${authToken}` };
+        const [pRes, aRes] = await Promise.all([
+          fetch("/api/user/profile", { headers }),
+          fetch("/api/user/addresses", { headers }),
+        ]);
+        const pData = await pRes.json();
+        const aData = await aRes.json();
+        if (!active) return;
+
+        if (pRes.ok && pData.success) {
+          const p = pData.data || {};
+          if (p.name || p.phone) {
+            setFormData((prev) => ({
+              ...prev,
+              customerName: prev.customerName || p.name || "",
+              phone: prev.phone || p.phone || "",
+            }));
+            setPrefilledFromProfile(true);
+          }
+        }
+
+        if (aRes.ok && aData.success && Array.isArray(aData.data) && aData.data.length > 0) {
+          const list: SavedAddress[] = aData.data;
+          setSavedAddresses(list);
+          const def = list.find((a) => a.is_default) || list[0];
+          setSelectedAddressId(def.id);
+          setFormData((prev) => ({ ...prev, address: def.address }));
           setPrefilledFromProfile(true);
         }
       } catch {
@@ -97,6 +120,16 @@ export default function Checkout({
       active = false;
     };
   }, [authToken]);
+
+  const handleSelectAddress = (a: SavedAddress) => {
+    setSelectedAddressId(a.id);
+    setFormData((prev) => ({ ...prev, address: a.address }));
+  };
+
+  const handleManualAddress = () => {
+    setSelectedAddressId("manual");
+    setFormData((prev) => ({ ...prev, address: "" }));
+  };
 
   // Load Midtrans Snap script
   useEffect(() => {
@@ -694,15 +727,97 @@ export default function Checkout({
                   <MapPin className="w-4 h-4 text-sky-500" />
                   Alamat Pengiriman & Pemasangan
                 </label>
-                <textarea
-                  name="address"
-                  required
-                  rows={4}
-                  value={formData.address}
-                  onChange={handleChange}
-                  className="w-full bg-white border-2 border-slate-200 rounded-lg px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400 transition-all resize-none placeholder-slate-400"
-                  placeholder="Tuliskan alamat lengkap termasuk kota dan kodepos..."
-                ></textarea>
+
+                {savedAddresses.length > 0 ? (
+                  <div className="space-y-2">
+                    {savedAddresses.map((a) => {
+                      const active = selectedAddressId === a.id;
+                      return (
+                        <button
+                          type="button"
+                          key={a.id}
+                          onClick={() => handleSelectAddress(a)}
+                          className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
+                            active
+                              ? "border-sky-400 bg-sky-50 ring-2 ring-sky-100"
+                              : "border-slate-200 hover:border-sky-200"
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <span
+                              className={`mt-0.5 w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
+                                active ? "border-sky-500" : "border-slate-300"
+                              }`}
+                            >
+                              {active && <span className="w-2 h-2 rounded-full bg-sky-500" />}
+                            </span>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-bold text-slate-900 text-sm">{a.label}</span>
+                                {a.is_default && (
+                                  <span className="text-[11px] font-bold text-sky-700 bg-sky-100 px-2 py-0.5 rounded-full">
+                                    Utama
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-slate-600 mt-0.5 whitespace-pre-line">
+                                {a.address}
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+
+                    {/* Opsi ketik alamat lain (sekali pakai) */}
+                    <button
+                      type="button"
+                      onClick={handleManualAddress}
+                      className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
+                        selectedAddressId === "manual"
+                          ? "border-sky-400 bg-sky-50 ring-2 ring-sky-100"
+                          : "border-slate-200 hover:border-sky-200"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
+                            selectedAddressId === "manual" ? "border-sky-500" : "border-slate-300"
+                          }`}
+                        >
+                          {selectedAddressId === "manual" && (
+                            <span className="w-2 h-2 rounded-full bg-sky-500" />
+                          )}
+                        </span>
+                        <span className="text-sm font-medium text-slate-700">
+                          Ketik alamat lain (sekali pakai)
+                        </span>
+                      </div>
+                    </button>
+
+                    {selectedAddressId === "manual" && (
+                      <textarea
+                        name="address"
+                        required
+                        rows={4}
+                        value={formData.address}
+                        onChange={handleChange}
+                        className="w-full mt-2 bg-white border-2 border-slate-200 rounded-lg px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400 transition-all resize-none placeholder-slate-400"
+                        placeholder="Tuliskan alamat lengkap termasuk kota dan kodepos..."
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <textarea
+                    name="address"
+                    required
+                    rows={4}
+                    value={formData.address}
+                    onChange={handleChange}
+                    className="w-full bg-white border-2 border-slate-200 rounded-lg px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400 transition-all resize-none placeholder-slate-400"
+                    placeholder="Tuliskan alamat lengkap termasuk kota dan kodepos..."
+                  />
+                )}
               </motion.div>
 
               {/* Keluhan Kerusakan - hanya tampil jika ada layanan */}
