@@ -63,7 +63,40 @@ export default function Checkout({
   const [loadingMessage, setLoadingMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [orderedCount, setOrderedCount] = useState(0);
+  const [prefilledFromProfile, setPrefilledFromProfile] = useState(false);
   const isSubmittingRef = React.useRef(false);
+
+  // Pre-fill data diri dari profil user agar tidak perlu mengetik ulang.
+  // Per-pesanan: perubahan di form ini TIDAK menimpa profil tersimpan
+  // (profil hanya diubah lewat halaman Profil).
+  useEffect(() => {
+    if (!authToken) return;
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/user/profile", {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+        const data = await res.json();
+        if (!active || !res.ok || !data.success) return;
+        const p = data.data || {};
+        if (p.name || p.phone || p.address) {
+          setFormData((prev) => ({
+            ...prev,
+            customerName: prev.customerName || p.name || "",
+            phone: prev.phone || p.phone || "",
+            address: prev.address || p.address || "",
+          }));
+          setPrefilledFromProfile(true);
+        }
+      } catch {
+        // diam saja — user tetap bisa mengisi manual
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [authToken]);
 
   // Load Midtrans Snap script
   useEffect(() => {
@@ -591,6 +624,21 @@ export default function Checkout({
             )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Info: data terisi dari profil */}
+              {prefilledFromProfile && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-3 bg-sky-50 border border-sky-200 rounded-xl flex items-start gap-2"
+                >
+                  <User className="w-4 h-4 text-sky-500 shrink-0 mt-0.5" />
+                  <p className="text-xs text-sky-800">
+                    Data diri terisi otomatis dari profil Anda. Boleh diubah
+                    untuk pesanan ini tanpa memengaruhi profil tersimpan.
+                  </p>
+                </motion.div>
+              )}
+
               {/* Name Field */}
               <motion.div
                 initial={{ opacity: 0, y: 10 }}

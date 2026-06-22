@@ -16,6 +16,7 @@ import Checkout from "./pages/Checkout";
 import Login from "./pages/Login";
 import Cart from "./pages/Cart";
 import UserOrders from "./pages/UserOrders";
+import Profile from "./pages/Profile";
 import AdminLayout from "./pages/admin/AdminLayout";
 import TeknisiDashboard from "./pages/teknisi/TeknisiDashboard";
 import Layanan from "./pages/Layanan";
@@ -107,6 +108,7 @@ export default function App() {
     "/karir": "karir",
     "/privasi": "privasi",
     "/syarat": "syarat",
+    "/profil": "profil",
     "/admin": "admin",
     "/teknisi": "teknisi",
   };
@@ -380,6 +382,12 @@ export default function App() {
           return null;
         }
         return <UserOrders token={authToken} />;
+      case "profil":
+        if (!authToken) {
+          openLogin();
+          return null;
+        }
+        return <Profile token={authToken} />;
       case "tambahan":
         if (!additionToken) return <Home setCurrentPage={setCurrentPage} />;
         return <CustomerAdditionApproval token={additionToken} />;

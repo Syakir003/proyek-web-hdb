@@ -1302,6 +1302,62 @@ async function startServer() {
   });
 
   // =========================
+  // USER PROFILE
+  // =========================
+  // Data diri tersimpan agar user tidak perlu mengetik ulang saat checkout.
+  // Endpoint ini HANYA mengelola 3 kolom (name, phone, address); kolom lain
+  // (role, password, dll) tidak boleh diubah dari sini.
+  app.get("/api/user/profile", authenticateToken, async (req: any, res) => {
+    try {
+      if (!req.user?.id) return res.status(401).json({ success: false, error: "User tidak teridentifikasi" });
+      const [rows]: any = await pool.query(
+        "SELECT name, phone, address FROM users WHERE id=?",
+        [req.user.id],
+      );
+      if (!rows.length) return res.status(404).json({ success: false, error: "Profil tidak ditemukan" });
+      const u = rows[0];
+      res.json({
+        success: true,
+        data: { name: u.name || "", phone: u.phone || "", address: u.address || "" },
+      });
+    } catch {
+      res.status(500).json({ success: false, error: "Gagal mengambil profil" });
+    }
+  });
+
+  app.put("/api/user/profile", authenticateToken, async (req: any, res) => {
+    try {
+      if (!req.user?.id) return res.status(401).json({ success: false, error: "User tidak teridentifikasi" });
+
+      const name = typeof req.body.name === "string" ? req.body.name.trim() : "";
+      const phone = typeof req.body.phone === "string" ? req.body.phone.trim() : "";
+      const address = typeof req.body.address === "string" ? req.body.address.trim() : "";
+
+      if (!name || name.length > 100) {
+        return res.status(400).json({ success: false, error: "Nama wajib diisi (maks 100 karakter)" });
+      }
+      if (phone.length > 20) {
+        return res.status(400).json({ success: false, error: "Nomor WhatsApp maksimal 20 karakter" });
+      }
+      if (phone && !/^[0-9+\-\s]+$/.test(phone)) {
+        return res.status(400).json({ success: false, error: "Nomor WhatsApp hanya boleh angka, +, -, dan spasi" });
+      }
+      if (address.length > 1000) {
+        return res.status(400).json({ success: false, error: "Alamat terlalu panjang (maks 1000 karakter)" });
+      }
+
+      await pool.query(
+        "UPDATE users SET name=?, phone=?, address=? WHERE id=?",
+        [name, phone || null, address || null, req.user.id],
+      );
+
+      res.json({ success: true, data: { name, phone, address } });
+    } catch {
+      res.status(500).json({ success: false, error: "Gagal menyimpan profil" });
+    }
+  });
+
+  // =========================
   // USER ORDERS
   // =========================
   app.get("/api/user/orders", authenticateToken, async (req: any, res) => {

@@ -283,18 +283,32 @@ export default function Navbar({
           {/* ── Right Actions (Desktop) ── */}
           <div className="hidden lg:flex items-center gap-1">
             {authToken && userRole === "user" && (
-              <button
-                onClick={() => navigate("pesanan-saya")}
-                className={`text-sm font-medium px-3 py-2 rounded-lg transition-all ${
-                  currentPage === "pesanan-saya"
-                    ? isTransparent ? "text-white bg-white/20" : "text-sky-600 bg-sky-50"
-                    : isTransparent
-                      ? "text-white/80 hover:text-white hover:bg-white/10"
-                      : "text-slate-600 hover:text-sky-600 hover:bg-sky-50"
-                }`}
-              >
-                Pesanan Saya
-              </button>
+              <>
+                <button
+                  onClick={() => navigate("pesanan-saya")}
+                  className={`text-sm font-medium px-3 py-2 rounded-lg transition-all ${
+                    currentPage === "pesanan-saya"
+                      ? isTransparent ? "text-white bg-white/20" : "text-sky-600 bg-sky-50"
+                      : isTransparent
+                        ? "text-white/80 hover:text-white hover:bg-white/10"
+                        : "text-slate-600 hover:text-sky-600 hover:bg-sky-50"
+                  }`}
+                >
+                  Pesanan Saya
+                </button>
+                <button
+                  onClick={() => navigate("profil")}
+                  className={`text-sm font-medium px-3 py-2 rounded-lg transition-all ${
+                    currentPage === "profil"
+                      ? isTransparent ? "text-white bg-white/20" : "text-sky-600 bg-sky-50"
+                      : isTransparent
+                        ? "text-white/80 hover:text-white hover:bg-white/10"
+                        : "text-slate-600 hover:text-sky-600 hover:bg-sky-50"
+                  }`}
+                >
+                  Profil
+                </button>
+              </>
             )}
 
             <CartBadge />
@@ -461,21 +475,37 @@ export default function Navbar({
                   })}
                 </motion.div>
 
-                {/* Pesanan Saya */}
+                {/* Pesanan Saya & Profil */}
                 {authToken && userRole === "user" && (
-                  <motion.button
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.38 }}
-                    onClick={() => navigate("pesanan-saya")}
-                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-                      currentPage === "pesanan-saya"
-                        ? "bg-sky-50 text-sky-600"
-                        : "text-slate-700 hover:bg-sky-50 hover:text-sky-600"
-                    }`}
-                  >
-                    Pesanan Saya
-                  </motion.button>
+                  <>
+                    <motion.button
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.38 }}
+                      onClick={() => navigate("pesanan-saya")}
+                      className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
+                        currentPage === "pesanan-saya"
+                          ? "bg-sky-50 text-sky-600"
+                          : "text-slate-700 hover:bg-sky-50 hover:text-sky-600"
+                      }`}
+                    >
+                      Pesanan Saya
+                    </motion.button>
+                    <motion.button
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.4 }}
+                      onClick={() => navigate("profil")}
+                      className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 ${
+                        currentPage === "profil"
+                          ? "bg-sky-50 text-sky-600"
+                          : "text-slate-700 hover:bg-sky-50 hover:text-sky-600"
+                      }`}
+                    >
+                      <User className="w-4 h-4" />
+                      Profil
+                    </motion.button>
+                  </>
                 )}
 
                 {/* Auth */}
