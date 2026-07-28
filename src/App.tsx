@@ -30,16 +30,47 @@ const Privasi = lazy(() => import("./pages/Privasi"));
 const Syarat = lazy(() => import("./pages/Syarat"));
 const CustomerAdditionApproval = lazy(() => import("./pages/CustomerAdditionApproval"));
 const InvoiceView = lazy(() => import("./pages/InvoiceView"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Placeholder tinggi-tetap supaya tidak menimbulkan layout shift (CLS)
 const PageFallback = () => <div className="min-h-screen" aria-busy="true" />;
 
+// ── Routing ───────────────────────────────────────────────────────────────
+// Daftar ini harus sejalan dengan SPA_PATHS di server.ts — server pakai daftar
+// yang sama untuk memutuskan balas 200 atau 404.
+const PATH_TO_PAGE: Record<string, string> = {
+  "/": "beranda",
+  "/katalog": "katalog",
+  "/layanan": "layanan",
+  "/tentang": "tentang",
+  "/kontak": "kontak",
+  "/blog": "blog",
+  "/karir": "karir",
+  "/privasi": "privasi",
+  "/syarat": "syarat",
+  "/admin": "admin",
+  "/teknisi": "teknisi",
+};
+const PAGE_TO_PATH: Record<string, string> = Object.fromEntries(
+  Object.entries(PATH_TO_PAGE).map(([k, v]) => [v, k]),
+);
+
+// Halaman ber-token: URL-nya tidak disinkronkan ulang dari nama halaman.
+const TOKEN_PAGES = ["tambahan", "invoice", "order-invoice"];
+
+// Satu-satunya tempat URL diterjemahkan jadi nama halaman.
+function pageFromPath(path: string): string {
+  if (path.startsWith("/tambahan/")) return "tambahan";
+  if (path.startsWith("/invoice/")) return "invoice";
+  if (path.startsWith("/order-invoice/")) return "order-invoice";
+  // Buang trailing slash: /katalog/ dianggap sama dengan /katalog
+  return PATH_TO_PAGE[path.replace(/\/+$/, "") || "/"] ?? "404";
+}
+
 export default function App() {
   const [currentPage, setCurrentPage] = useState(() => {
-    const path = window.location.pathname;
-    if (path.startsWith('/tambahan/')) return 'tambahan';
-    if (path.startsWith('/invoice/')) return 'invoice';
-    if (path.startsWith('/order-invoice/')) return 'order-invoice';
+    const page = pageFromPath(window.location.pathname);
+    if (page !== "beranda") return page;
     const savedToken = localStorage.getItem("authToken");
     const savedRole = localStorage.getItem("userRole");
     if (savedToken) {
@@ -49,15 +80,16 @@ export default function App() {
     return "beranda";
   });
   const [previousPage, setPreviousPage] = useState("beranda");
-  const [additionToken, setAdditionToken] = useState<string | null>(() => {
+  // Token dibaca sekali dari URL saat mount — sama seperti perilaku sebelumnya.
+  const [additionToken] = useState<string | null>(() => {
     const path = window.location.pathname;
     return path.startsWith('/tambahan/') ? path.replace('/tambahan/', '') : null;
   });
-  const [invoiceToken, setInvoiceToken] = useState<string | null>(() => {
+  const [invoiceToken] = useState<string | null>(() => {
     const path = window.location.pathname;
     return path.startsWith('/invoice/') ? path.replace('/invoice/', '') : null;
   });
-  const [orderInvoiceToken, setOrderInvoiceToken] = useState<string | null>(() => {
+  const [orderInvoiceToken] = useState<string | null>(() => {
     const path = window.location.pathname;
     return path.startsWith('/order-invoice/') ? path.replace('/order-invoice/', '') : null;
   });
@@ -103,51 +135,14 @@ export default function App() {
   }, [cart, canUseCart]);
 
   // ── SEO: URL routing via History API ──────────────────────────────────────
-  const PATH_TO_PAGE: Record<string, string> = {
-    "/": "beranda",
-    "/katalog": "katalog",
-    "/layanan": "layanan",
-    "/tentang": "tentang",
-    "/kontak": "kontak",
-    "/blog": "blog",
-    "/karir": "karir",
-    "/privasi": "privasi",
-    "/syarat": "syarat",
-    "/admin": "admin",
-    "/teknisi": "teknisi",
-  };
-  const PAGE_TO_PATH: Record<string, string> = Object.fromEntries(
-    Object.entries(PATH_TO_PAGE).map(([k, v]) => [v, k])
-  );
+  // Pembacaan URL awal sudah ditangani initializer useState di atas
+  // (currentPage + ketiga token), jadi tidak perlu effect terpisah lagi.
 
-  // Baca URL saat pertama kali halaman dibuka
+  // Update URL setiap kali halaman berubah.
+  // "404" ikut dikecualikan — kalau tidak, URL salahnya langsung ditimpa "/"
+  // dan pengunjung tidak pernah lihat alamat yang mereka ketik.
   useEffect(() => {
-    const path = window.location.pathname;
-    if (path.startsWith('/tambahan/')) {
-      const t = path.replace('/tambahan/', '');
-      setAdditionToken(t);
-      setCurrentPage('tambahan');
-      return;
-    }
-    if (path.startsWith('/invoice/')) {
-      const t = path.replace('/invoice/', '');
-      setInvoiceToken(t);
-      setCurrentPage('invoice');
-      return;
-    }
-    if (path.startsWith('/order-invoice/')) {
-      const t = path.replace('/order-invoice/', '');
-      setOrderInvoiceToken(t);
-      setCurrentPage('order-invoice');
-      return;
-    }
-    const page = PATH_TO_PAGE[path];
-    if (page && page !== "beranda") setCurrentPage(page);
-  }, []);
-
-  // Update URL setiap kali halaman berubah
-  useEffect(() => {
-    if (currentPage === 'tambahan' || currentPage === 'invoice' || currentPage === 'order-invoice') return;
+    if (TOKEN_PAGES.includes(currentPage) || currentPage === "404") return;
     const path = PAGE_TO_PATH[currentPage] ?? "/";
     if (window.location.pathname !== path) {
       window.history.pushState({ page: currentPage }, "", path);
@@ -157,7 +152,7 @@ export default function App() {
   // Tangani tombol Back/Forward browser
   useEffect(() => {
     const onPopState = (e: PopStateEvent) => {
-      const page = e.state?.page ?? PATH_TO_PAGE[window.location.pathname] ?? "beranda";
+      const page = e.state?.page ?? pageFromPath(window.location.pathname);
       setCurrentPage(page);
     };
     window.addEventListener("popstate", onPopState);
@@ -376,6 +371,8 @@ export default function App() {
         return <Syarat />;
       case "kontak":
         return <Contact />;
+      case "404":
+        return <NotFound setCurrentPage={setCurrentPage} />;
       case "cart":
         return (
           <Cart

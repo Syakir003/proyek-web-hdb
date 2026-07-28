@@ -7,6 +7,7 @@ interface SEOMeta {
   ogImage?: string;
   keywords?: string;
   breadcrumb?: { name: string; url: string }[];
+  noindex?: boolean;
 }
 
 const BASE_URL = "https://www.hdbairconds.id";
@@ -80,6 +81,14 @@ const pageSEO: Record<string, SEOMeta> = {
     canonical: `${BASE_URL}/syarat`,
     breadcrumb: [...HOME_BREADCRUMB, { name: "Syarat & Ketentuan", url: `${BASE_URL}/syarat` }],
   },
+  "404": {
+    title: "Halaman Tidak Ditemukan (404) | HDB Airconds",
+    description:
+      "Halaman yang Anda cari tidak ditemukan. Kembali ke beranda HDB Airconds untuk layanan service, cuci, dan instalasi AC di Mojokerto.",
+    // Tanpa canonical: URL-nya memang tidak sah, jangan sampai dianggap
+    // duplikat beranda. noindex supaya tidak masuk hasil pencarian.
+    noindex: true,
+  },
 };
 
 function setMetaTag(name: string, content: string, isProperty = false) {
@@ -101,6 +110,10 @@ function setCanonical(href: string) {
     document.head.appendChild(el);
   }
   el.setAttribute("href", href);
+}
+
+function removeCanonical() {
+  document.querySelector('link[rel="canonical"]')?.remove();
 }
 
 const BREADCRUMB_SCRIPT_ID = "ld-breadcrumb-dynamic";
@@ -163,8 +176,21 @@ export function useSEO(page: string) {
     setMetaTag("title", meta.title);
     setMetaTag("description", meta.description);
 
-    // Canonical
-    setCanonical(canonical);
+    // Robots — halaman 404 tidak boleh masuk hasil pencarian
+    setMetaTag(
+      "robots",
+      meta.noindex
+        ? "noindex, follow"
+        : "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1",
+    );
+
+    // Canonical. Di halaman 404 tag-nya dibuang, bukan diarahkan ke beranda —
+    // kalau diarahkan, Google menganggap URL ngawur itu duplikat beranda.
+    if (meta.noindex) {
+      removeCanonical();
+    } else {
+      setCanonical(canonical);
+    }
 
     // Open Graph
     setMetaTag("og:title", meta.title, true);
@@ -182,6 +208,9 @@ export function useSEO(page: string) {
     // Breadcrumb schema (dinamis per halaman)
     if (meta.breadcrumb && meta.breadcrumb.length > 0) {
       setBreadcrumbSchema(meta.breadcrumb);
+    } else {
+      // Tanpa ini, breadcrumb halaman sebelumnya tertinggal di <head>
+      document.getElementById(BREADCRUMB_SCRIPT_ID)?.remove();
     }
 
     // Product schema dinamis: hanya inject di halaman katalog

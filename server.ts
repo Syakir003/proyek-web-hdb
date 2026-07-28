@@ -2587,9 +2587,27 @@ async function startServer() {
       }),
     );
     // SPA fallback: semua route non-API dikembalikan ke index.html
-    // agar URL seperti /layanan, /katalog tetap bisa diakses langsung
-    app.get(/^(?!\/api).*/, (_req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+    // agar URL seperti /layanan, /katalog tetap bisa diakses langsung.
+    //
+    // Route yang dikenal dibalas 200, sisanya 404 — isinya tetap index.html
+    // supaya React bisa menampilkan halaman 404 yang rapi, tapi status HTTP-nya
+    // jujur. Tanpa ini semua URL ngawur balas 200 (soft 404) dan Google
+    // mengindeksnya sebagai duplikat Beranda.
+    // Daftar ini harus sejalan dengan PATH_TO_PAGE di src/App.tsx.
+    const SPA_PATHS = new Set([
+      "/", "/katalog", "/layanan", "/tentang", "/kontak",
+      "/blog", "/karir", "/privasi", "/syarat", "/admin", "/teknisi",
+    ]);
+    const SPA_PREFIXES = ["/tambahan/", "/invoice/", "/order-invoice/"];
+
+    app.get(/^(?!\/api).*/, (req, res) => {
+      const normalized = req.path.replace(/\/+$/, "") || "/";
+      const known =
+        SPA_PATHS.has(normalized) ||
+        SPA_PREFIXES.some((prefix) => req.path.startsWith(prefix));
+      res
+        .status(known ? 200 : 404)
+        .sendFile(path.join(distPath, "index.html"));
     });
   }
 
