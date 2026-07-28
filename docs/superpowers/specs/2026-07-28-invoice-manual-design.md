@@ -201,9 +201,10 @@ Memakai `src/pages/InvoiceView.tsx` yang sudah ada dengan `fetchUrl` menunjuk
 
 1. Kop surat baru (berlaku untuk semua jenis invoice)
 2. Baris DP dan Sisa Tagihan pada tabel total, tampil hanya kalau `dp_amount > 0`
-3. Label status memakai `data.status`, menggantikan teks "LUNAS" yang sekarang
-   di-hardcode — invoice order tetap mengirim `status: "LUNAS"` supaya
-   tampilannya tidak berubah
+3. Label status memakai `data.status || "LUNAS"`, menggantikan teks "LUNAS"
+   yang sekarang di-hardcode. Nilai jatuh-balik dipakai supaya endpoint invoice
+   order dan penambahan tidak perlu diubah sama sekali — keduanya memang selalu
+   lunas saat invoice terbit
 4. Blok catatan tampil kalau `notes` terisi
 5. Bagian "Penambahan Material & Jasa" disembunyikan kalau `add_items` kosong
 
@@ -216,9 +217,10 @@ Memakai `src/pages/InvoiceView.tsx` yang sudah ada dengan `fetchUrl` menunjuk
 
 ## Pengujian
 
-Satu berkas pengecekan: `scripts/test-invoice.mjs`, dijalankan dengan
-`node scripts/test-invoice.mjs`. Isinya `assert` terhadap fungsi murni di
-`src/utils/invoice.ts`:
+Satu berkas pengecekan: `scripts/test-invoice.ts`, dijalankan dengan
+`npx tsx scripts/test-invoice.ts` (`tsx` sudah jadi dependency project, jadi
+berkas uji bisa langsung mengimpor sumber TypeScript-nya). Isinya `assert`
+terhadap fungsi murni di `src/utils/invoice.ts`:
 
 - total baris = qty × harga, termasuk qty desimal
 - subtotal = jumlah semua baris
@@ -237,7 +239,7 @@ diverifikasi manual lewat UI.
 | Berkas | Perubahan |
 |---|---|
 | `src/utils/invoice.ts` | baru — hitung total & validasi |
-| `scripts/test-invoice.mjs` | baru — pengecekan perhitungan |
+| `scripts/test-invoice.ts` | baru — pengecekan perhitungan |
 | `src/pages/admin/AdminInvoices.tsx` | baru — daftar + form |
 | `server.ts` | tabel `manual_invoices`, 4 endpoint, `nextInvoiceNumber` +1 sumber, `SPA_PREFIXES` |
 | `src/pages/InvoiceView.tsx` | kop baru, baris DP/sisa, status dinamis, catatan |
