@@ -39,7 +39,7 @@ export default function Footer({ setCurrentPage }: { setCurrentPage: (page: stri
               <Clock className="w-5 h-5 text-sky-200" />
               <span className="text-sm font-medium">Layanan Darurat 24/7 — Kami siap melayani kapanpun Anda butuhkan</span>
             </div>
-            <button onClick={() => setCurrentPage("kontak")} className="flex items-center gap-2 bg-white text-sky-600 hover:bg-sky-50 px-4 py-2 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap">
+            <button onClick={() => setCurrentPage("kontak")} className="flex items-center gap-2 bg-white text-sky-700 hover:bg-sky-50 px-4 py-2 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap">
               Hubungi Sekarang <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -90,7 +90,7 @@ export default function Footer({ setCurrentPage }: { setCurrentPage: (page: stri
 
           {/* Perusahaan */}
           <div>
-            <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Perusahaan</h4>
+            <h3 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Perusahaan</h3>
             <ul className="space-y-2.5">
               {footerLinks.company.map((link) => (
                 <li key={link.label}>
@@ -102,7 +102,7 @@ export default function Footer({ setCurrentPage }: { setCurrentPage: (page: stri
 
           {/* Layanan */}
           <div>
-            <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Layanan</h4>
+            <h3 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Layanan</h3>
             <ul className="space-y-2.5">
               {footerLinks.services.map((link) => (
                 <li key={link.label}>
@@ -114,7 +114,7 @@ export default function Footer({ setCurrentPage }: { setCurrentPage: (page: stri
 
           {/* Produk + Newsletter */}
           <div>
-            <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Produk</h4>
+            <h3 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Produk</h3>
             <ul className="space-y-2.5">
               {footerLinks.products.map((link) => (
                 <li key={link.label}>
@@ -123,11 +123,11 @@ export default function Footer({ setCurrentPage }: { setCurrentPage: (page: stri
               ))}
             </ul>
             <div className="mt-8">
-              <h4 className="text-white font-semibold mb-3 text-sm uppercase tracking-wider">Newsletter</h4>
+              <h3 className="text-white font-semibold mb-3 text-sm uppercase tracking-wider">Newsletter</h3>
               <p className="text-slate-400 text-xs mb-3">Dapatkan tips & promo terbaru</p>
               <div className="flex gap-2">
-                <input type="email" placeholder="Email kamu" className="flex-1 bg-slate-800 border border-slate-700 focus:border-sky-400 text-white placeholder-slate-500 text-xs px-3 py-2 rounded-lg outline-none transition-colors" />
-                <button className="bg-sky-500 hover:bg-sky-600 text-white px-3 py-2 rounded-lg transition-colors">
+                <input type="email" placeholder="Email kamu" aria-label="Alamat email untuk newsletter" className="flex-1 bg-slate-800 border border-slate-700 focus:border-sky-400 text-white placeholder-slate-400 text-xs px-3 py-2 rounded-lg outline-none transition-colors" />
+                <button aria-label="Berlangganan newsletter" className="bg-sky-600 hover:bg-sky-700 text-white px-3 py-2 rounded-lg transition-colors">
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -139,7 +139,7 @@ export default function Footer({ setCurrentPage }: { setCurrentPage: (page: stri
       {/* Bottom Bar */}
       <div className="border-t border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-slate-500 text-xs">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-slate-400 text-xs">
             <span>© {currentYear} HDB Airconds. Semua hak dilindungi.</span>
             <div className="flex items-center gap-4">
               <button onClick={() => setCurrentPage("privasi")} className="hover:text-sky-400 transition-colors">Kebijakan Privasi</button>

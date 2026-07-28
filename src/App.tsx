@@ -440,7 +440,12 @@ export default function App() {
 
       <main className={`grow ${!isInvoicePage && currentPage !== "beranda" ? "pt-20" : ""}`}>
         <Suspense fallback={<PageFallback />}>
-          <AnimatePresence mode="wait">{renderPage()}</AnimatePresence>
+          {/* initial={false}: lewati fade-in saat mount pertama. Halaman
+              ber-opacity 0 tidak dihitung "painted", jadi fade ini menunda LCP.
+              Transisi antar-halaman berikutnya tetap beranimasi. */}
+          <AnimatePresence mode="wait" initial={false}>
+            {renderPage()}
+          </AnimatePresence>
         </Suspense>
       </main>
 
@@ -461,6 +466,9 @@ export default function App() {
           href="https://wa.me/6281515729739?text=Halo%20saya%20ingin%20bertanya"
           target="_blank"
           rel="noopener noreferrer"
+          /* Teks "Chat Kami" disembunyikan di layar kecil, jadi tanpa
+             aria-label tautan ini tidak punya nama sama sekali di mobile. */
+          aria-label="Chat kami via WhatsApp"
           className="fixed bottom-6 right-6 z-50 bg-green-500 text-white px-4 py-3 sm:px-5 rounded-full shadow-lg hover:bg-green-600 transition-all hover:-translate-y-1 flex items-center gap-2 font-medium"
         >
           <BrandIcon name="whatsappMono" size={22} className="text-white" />

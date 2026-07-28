@@ -33,8 +33,11 @@ async function compress(file) {
       ? await img.jpeg({ quality: 80, mozjpeg: true }).toBuffer()
       : await img.webp({ quality: QUALITY, effort: 6 }).toBuffer();
 
-  // Jangan tukar kalau hasilnya malah lebih besar (mis. sudah pernah dikompres)
-  if (out.length >= input.length) {
+  // Hanya tukar kalau hematnya berarti (>15%). Tanpa ambang ini, menjalankan
+  // skrip berulang kali terus meng-encode ulang file yang sudah optimal —
+  // ukurannya turun beberapa persen tapi kualitasnya ikut turun tiap kali.
+  // 15% cukup untuk membedakan "belum pernah dioptimalkan" dari "sudah".
+  if (out.length > input.length * 0.85) {
     console.log(`  skip  ${file} (${kb(input.length)} sudah optimal)`);
     return 0;
   }
@@ -61,5 +64,26 @@ await sharp(path.join(DIR, "HDB-LOGO.png"))
   .resize(80)
   .webp({ quality: 85 })
   .toFile(path.join(DIR, "logo-80.webp"));
+
+// Varian lebar untuk srcset. Gambar hero full-bleed di HP 360px cuma butuh
+// ~720px (layar 2x), bukan 1600px — ini penyumbang terbesar LCP di mobile.
+const RESPONSIVE = [
+  "instalasi-ac-mojokerto-hdb-airconds.webp",
+  "proyek-instalasi-ac-mojokerto.webp",
+  "service-ac-properti-mojokerto.webp",
+];
+const WIDTHS = [640, 960, 1280];
+for (const file of RESPONSIVE) {
+  const input = await readFile(path.join(DIR, file));
+  for (const w of WIDTHS) {
+    const out = await sharp(input)
+      .resize({ width: w, withoutEnlargement: true })
+      .webp({ quality: QUALITY, effort: 6 })
+      .toBuffer();
+    const name = file.replace(/\.webp$/, `-${w}.webp`);
+    await writeFile(path.join(DIR, name), out);
+    console.log(`  var   ${name}  ${kb(out.length)}`);
+  }
+}
 
 console.log(`\nTotal hemat: ${kb(saved)}`);

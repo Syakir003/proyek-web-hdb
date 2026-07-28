@@ -98,11 +98,19 @@
       crossorigin
     />
 
-    <!-- LCP: gambar hero slide pertama, mulai diunduh sebelum JS jalan -->
+    <!-- LCP: gambar hero slide pertama, mulai diunduh sebelum JS jalan.
+         imagesrcset/imagesizes harus sama persis dengan <img> di Home.tsx —
+         kalau beda, browser mengunduh dua ukuran sekaligus. -->
     <link
       rel="preload"
       as="image"
       href="/images/instalasi-ac-mojokerto-hdb-airconds.webp"
+      imagesrcset="
+        /images/instalasi-ac-mojokerto-hdb-airconds-640.webp 640w,
+        /images/instalasi-ac-mojokerto-hdb-airconds-960.webp 960w,
+        /images/instalasi-ac-mojokerto-hdb-airconds-1280.webp 1280w,
+        /images/instalasi-ac-mojokerto-hdb-airconds.webp 1600w"
+      imagesizes="100vw"
       fetchpriority="high"
     />
 

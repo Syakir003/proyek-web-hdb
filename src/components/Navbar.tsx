@@ -81,6 +81,9 @@ export default function Navbar({
   const CartBadge = ({ mobile = false }: { mobile?: boolean }) => (
     <motion.button
       onClick={() => navigate("cart")}
+      aria-label={
+        cartCount > 0 ? `Keranjang, ${cartCount} item` : "Keranjang belanja"
+      }
       animate={cartPulse ? { scale: [1, 1.3, 0.88, 1.08, 1] } : { scale: 1 }}
       transition={{ duration: 0.5 }}
       className={`relative rounded-xl transition-all ${
@@ -346,6 +349,8 @@ export default function Navbar({
             <CartBadge mobile />
             <motion.button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              aria-label={isMobileMenuOpen ? "Tutup menu" : "Buka menu"}
+              aria-expanded={isMobileMenuOpen}
               whileTap={{ scale: 0.9 }}
               className={`p-2 rounded-lg transition-all ${
                 isTransparent ? "text-white hover:bg-white/10" : "text-slate-700 hover:bg-sky-50"

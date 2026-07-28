@@ -41,6 +41,15 @@ const serviceAreas = [
   },
 ];
 
+// Varian lebar dibuat oleh scripts/optimize-images.mjs. Di HP 360px browser
+// ambil yang 640px (~16 KB), bukan aslinya yang 1600px (~56 KB).
+const HERO_WIDTHS = [640, 960, 1280];
+const heroSrcSet = (src: string) =>
+  [
+    ...HERO_WIDTHS.map((w) => `${src.replace(/\.webp$/, "")}-${w}.webp ${w}w`),
+    `${src} 1600w`,
+  ].join(", ");
+
 const heroSlides = [
   {
     title: "Jasa Service AC Mojokerto",
@@ -493,6 +502,8 @@ export default function Home({
             {(i === 0 || preloadRest || i === activeSlide) && (
               <img
                 src={s.image}
+                srcSet={heroSrcSet(s.image)}
+                sizes="100vw"
                 alt={`${s.title} – HDB Airconds`}
                 width="1920"
                 height="1080"
@@ -592,7 +603,7 @@ export default function Home({
                 onClick={() => setCurrentPage("katalog")}
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
-                className="bg-sky-500 hover:bg-sky-600 text-white px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl font-semibold flex items-center gap-2 shadow-lg shadow-sky-500/30 transition-colors text-sm sm:text-base"
+                className="bg-sky-700 hover:bg-sky-800 text-white px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl font-semibold flex items-center gap-2 shadow-lg shadow-sky-500/30 transition-colors text-sm sm:text-base"
               >
                 Lihat Produk <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
               </motion.button>
@@ -629,19 +640,28 @@ export default function Home({
             ))}
           </div>
 
-          <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex gap-3">
-            {heroSlides.map((_, i) => (
+          {/* Titik indikator: bulatannya tetap 10px, tapi area sentuhnya 24px
+              (syarat minimum WCAG) lewat padding pada <button>. */}
+          <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex gap-1">
+            {heroSlides.map((s, i) => (
               <button
                 key={i}
                 onClick={() => setActiveSlide(i)}
-                className={`transition-all duration-300 rounded-full ${i === activeSlide ? "w-8 h-2.5 bg-sky-400" : "w-2.5 h-2.5 bg-white/40 hover:bg-white/60"}`}
-              />
+                aria-label={`Tampilkan slide ${i + 1}: ${s.title}`}
+                aria-current={i === activeSlide ? "true" : undefined}
+                className="grid place-items-center min-w-6 h-6 px-1"
+              >
+                <span
+                  className={`block transition-all duration-300 rounded-full ${i === activeSlide ? "w-8 h-2.5 bg-sky-400" : "w-2.5 h-2.5 bg-white/40 hover:bg-white/60"}`}
+                />
+              </button>
             ))}
           </div>
           <motion.button
             onClick={() =>
               window.scrollTo({ top: window.innerHeight, behavior: "smooth" })
             }
+            aria-label="Gulir ke bawah"
             className="absolute bottom-10 right-8 text-white/50 hover:text-white/80 transition-colors flex flex-col items-center gap-1 text-xs"
             animate={{ y: [0, 6, 0] }}
             transition={{ duration: 2, repeat: Infinity }}
@@ -674,7 +694,7 @@ export default function Home({
                   <div className="text-white font-semibold text-sm mb-1">
                     {stat.label}
                   </div>
-                  <div className="text-sky-200 text-xs">{stat.desc}</div>
+                  <div className="text-sky-50 text-xs">{stat.desc}</div>
                 </div>
               </motion.div>
             ))}
@@ -692,13 +712,13 @@ export default function Home({
             transition={{ duration: 0.5 }}
             className="text-center mb-16"
           >
-            <div className="inline-flex items-center gap-2 bg-sky-50 text-sky-600 px-4 py-1.5 rounded-full text-sm font-medium mb-4">
+            <div className="inline-flex items-center gap-2 bg-sky-50 text-sky-800 px-4 py-1.5 rounded-full text-sm font-medium mb-4">
               <div className="w-1.5 h-1.5 rounded-full bg-sky-500" />
               Layanan Kami
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold text-slate-800 mb-4">
               Jasa Service AC Mojokerto &amp; Mojosari,{" "}
-              <span className="text-sky-500">Semua Kami Tangani</span>
+              <span className="text-sky-700">Semua Kami Tangani</span>
             </h2>
             <p className="text-slate-500 max-w-2xl mx-auto">
               Cuci AC, isi freon, instalasi, hingga perbaikan – layanan AC
@@ -731,7 +751,7 @@ export default function Home({
                     <h3 className="text-slate-800 font-semibold text-lg leading-tight">
                       {service.name}
                     </h3>
-                    <span className="bg-sky-50 text-sky-600 text-xs font-semibold px-2.5 py-1 rounded-lg whitespace-nowrap flex-shrink-0">
+                    <span className="bg-sky-50 text-sky-800 text-xs font-semibold px-2.5 py-1 rounded-lg whitespace-nowrap flex-shrink-0">
                       {formatPrice(service.price)}
                     </span>
                   </div>
@@ -756,7 +776,7 @@ export default function Home({
           >
             <button
               onClick={() => setCurrentPage("layanan")}
-              className="inline-flex items-center gap-2 bg-sky-500 hover:bg-sky-600 text-white px-8 py-3.5 rounded-xl font-semibold shadow-lg shadow-sky-500/30 transition-all duration-200 hover:-translate-y-0.5"
+              className="inline-flex items-center gap-2 bg-sky-700 hover:bg-sky-800 text-white px-8 py-3.5 rounded-xl font-semibold shadow-lg shadow-sky-500/30 transition-all duration-200 hover:-translate-y-0.5"
             >
               Lihat Semua Layanan <ArrowRight className="w-5 h-5" />
             </button>
@@ -775,12 +795,12 @@ export default function Home({
             className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-6 mb-10"
           >
             <div>
-              <div className="inline-flex items-center gap-2 bg-sky-50 text-sky-600 px-4 py-1.5 rounded-full text-sm font-medium mb-4">
+              <div className="inline-flex items-center gap-2 bg-sky-50 text-sky-800 px-4 py-1.5 rounded-full text-sm font-medium mb-4">
                 <div className="w-1.5 h-1.5 rounded-full bg-sky-500" />
                 Produk Kami
               </div>
               <h2 className="text-3xl sm:text-4xl font-bold text-slate-800">
-                Sparepart &amp; AC <span className="text-sky-500">Terlengkap di Mojokerto</span>
+                Sparepart &amp; AC <span className="text-sky-700">Terlengkap di Mojokerto</span>
               </h2>
               <p className="text-slate-500 mt-2 max-w-lg">
                 50+ merek AC terkemuka dengan harga terbaik, garansi resmi, dan
@@ -789,7 +809,7 @@ export default function Home({
             </div>
             <button
               onClick={() => setCurrentPage("katalog")}
-              className="flex items-center gap-2 text-sky-600 hover:text-sky-700 font-semibold text-sm border border-sky-200 hover:border-sky-400 px-4 py-2 rounded-xl transition-all"
+              className="flex items-center gap-2 text-sky-700 hover:text-sky-800 font-semibold text-sm border border-sky-200 hover:border-sky-400 px-4 py-2 rounded-xl transition-all"
             >
               Semua Produk <ArrowRight className="w-4 h-4" />
             </button>
@@ -839,7 +859,7 @@ export default function Home({
                       {product.specs.map((spec: string) => (
                         <span
                           key={spec}
-                          className="bg-sky-50 text-sky-600 text-xs px-2 py-0.5 rounded-md font-medium"
+                          className="bg-sky-50 text-sky-800 text-xs px-2 py-0.5 rounded-md font-medium"
                         >
                           {spec}
                         </span>
@@ -854,7 +874,7 @@ export default function Home({
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        className="flex items-center gap-1.5 bg-sky-500 hover:bg-sky-600 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-md shadow-sky-500/20"
+                        className="flex items-center gap-1.5 bg-sky-700 hover:bg-sky-800 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-md shadow-sky-500/20"
                         onClick={(e) => {
                           e.stopPropagation();
                           setCurrentPage("kontak");
@@ -922,11 +942,11 @@ export default function Home({
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.5 }}
-                className="absolute -top-6 -left-6 bg-sky-500 text-white rounded-2xl shadow-2xl p-5"
+                className="absolute -top-6 -left-6 bg-sky-700 text-white rounded-2xl shadow-2xl p-5"
               >
                 <div className="text-3xl font-bold mb-1">10+</div>
-                <div className="text-sky-200 text-sm">Tahun Berpengalaman</div>
-                <div className="text-xs text-sky-300 mt-1">Sejak 2014</div>
+                <div className="text-sky-100 text-sm">Tahun Berpengalaman</div>
+                <div className="text-xs text-sky-100 mt-1">Sejak 2014</div>
               </motion.div>
               <div className="absolute -z-10 inset-0 translate-x-6 translate-y-6 rounded-3xl bg-gradient-to-br from-sky-100 to-blue-100" />
             </motion.div>
@@ -936,13 +956,13 @@ export default function Home({
               viewport={{ once: true }}
               transition={{ duration: 0.7 }}
             >
-              <div className="inline-flex items-center gap-2 bg-sky-50 text-sky-600 px-4 py-1.5 rounded-full text-sm font-medium mb-5">
+              <div className="inline-flex items-center gap-2 bg-sky-50 text-sky-800 px-4 py-1.5 rounded-full text-sm font-medium mb-5">
                 <div className="w-1.5 h-1.5 rounded-full bg-sky-500" />
                 Mengapa Pilih Kami
               </div>
               <h2 className="text-3xl sm:text-4xl font-bold text-slate-800 mb-5">
                 Kepercayaan Anda adalah{" "}
-                <span className="text-sky-500">Prioritas Utama</span> Kami
+                <span className="text-sky-700">Prioritas Utama</span> Kami
               </h2>
               <p className="text-slate-500 mb-10 leading-relaxed">
                 Dengan lebih dari 10 tahun pengalaman dan ribuan pelanggan puas,
@@ -965,9 +985,9 @@ export default function Home({
                       <reason.icon className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <h4 className="text-slate-800 font-semibold text-sm mb-1">
+                      <h3 className="text-slate-800 font-semibold text-sm mb-1">
                         {reason.title}
-                      </h4>
+                      </h3>
                       <p className="text-slate-500 text-xs leading-relaxed">
                         {reason.description}
                       </p>
@@ -979,7 +999,7 @@ export default function Home({
                 onClick={() => setCurrentPage("tentang")}
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
-                className="mt-10 inline-flex items-center gap-2 bg-sky-500 hover:bg-sky-600 text-white px-7 py-3.5 rounded-xl font-semibold shadow-lg shadow-sky-500/30 transition-all"
+                className="mt-10 inline-flex items-center gap-2 bg-sky-700 hover:bg-sky-800 text-white px-7 py-3.5 rounded-xl font-semibold shadow-lg shadow-sky-500/30 transition-all"
               >
                 Tentang Kami <ArrowRight className="w-5 h-5" />
               </motion.button>
@@ -1004,7 +1024,7 @@ export default function Home({
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold text-slate-800 mb-4">
               Jasa Service AC{" "}
-              <span className="text-sky-500">Mojokerto Raya & Sekitarnya</span>
+              <span className="text-sky-700">Mojokerto Raya & Sekitarnya</span>
             </h2>
             <p className="text-slate-500 max-w-2xl mx-auto">
               HDB Airconds melayani panggilan service, cuci, dan instalasi AC ke
@@ -1063,7 +1083,7 @@ export default function Home({
               href="https://wa.me/6281515729739?text=Halo%20saya%20ingin%20bertanya%20layanan%20AC"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 bg-sky-500 hover:bg-sky-600 text-white px-6 py-3 rounded-xl font-semibold shadow-md shadow-sky-500/20 transition-all hover:-translate-y-0.5"
+              className="inline-flex items-center gap-2 bg-sky-700 hover:bg-sky-800 text-white px-6 py-3 rounded-xl font-semibold shadow-md shadow-sky-500/20 transition-all hover:-translate-y-0.5"
             >
               <Phone className="w-4 h-4" /> Cek Ketersediaan Wilayah Anda
             </a>
@@ -1081,13 +1101,13 @@ export default function Home({
             transition={{ duration: 0.2 }}
             className="text-center"
           >
-            <div className="inline-flex items-center gap-2 bg-sky-50 text-sky-600 px-4 py-1.5 rounded-full text-sm font-medium mb-4">
+            <div className="inline-flex items-center gap-2 bg-sky-50 text-sky-800 px-4 py-1.5 rounded-full text-sm font-medium mb-4">
               <div className="w-1.5 h-1.5 rounded-full bg-sky-500" />
               Merek Partner
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold text-slate-800">
               Tersedia 50+ Merek{" "}
-              <span className="text-sky-500">Terpercaya</span>
+              <span className="text-sky-700">Terpercaya</span>
             </h2>
             <p className="text-slate-500 mt-3 max-w-xl mx-auto">
               Kami adalah distributor resmi berbagai merek AC ternama di dunia.
@@ -1115,13 +1135,13 @@ export default function Home({
             transition={{ duration: 0.5 }}
             className="text-center mb-14"
           >
-            <div className="inline-flex items-center gap-2 bg-sky-50 text-sky-600 px-4 py-1.5 rounded-full text-sm font-medium mb-4">
+            <div className="inline-flex items-center gap-2 bg-sky-50 text-sky-800 px-4 py-1.5 rounded-full text-sm font-medium mb-4">
               <div className="w-1.5 h-1.5 rounded-full bg-sky-500" />
               Testimoni
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold text-slate-800">
               Kata Mereka Tentang{" "}
-              <span className="text-sky-500">HDB Airconds</span>
+              <span className="text-sky-700">HDB Airconds</span>
             </h2>
             <p className="text-slate-500 mt-3 max-w-xl mx-auto">
               Kepuasan pelanggan adalah bukti nyata komitmen kami dalam
@@ -1179,10 +1199,10 @@ export default function Home({
                         </div>
                       </div>
                       <div className="text-right">
-                        <span className="bg-sky-50 text-sky-600 text-xs font-semibold px-3 py-1.5 rounded-lg">
+                        <span className="bg-sky-50 text-sky-800 text-xs font-semibold px-3 py-1.5 rounded-lg">
                           {testimonial.service}
                         </span>
-                        <div className="text-slate-400 text-xs mt-1">
+                        <div className="text-slate-500 text-xs mt-1">
                           {testimonial.date}
                         </div>
                       </div>
@@ -1194,21 +1214,29 @@ export default function Home({
             <div className="flex items-center justify-between mt-8">
               <button
                 onClick={prevTestimonial}
+                aria-label="Testimoni sebelumnya"
                 className="w-12 h-12 rounded-2xl bg-white border border-slate-200 hover:border-sky-300 hover:bg-sky-50 flex items-center justify-center transition-all shadow-sm"
               >
                 <ChevronLeft className="w-5 h-5 text-slate-600" />
               </button>
-              <div className="flex gap-2">
-                {testimonials.map((_, i) => (
+              <div className="flex gap-1">
+                {testimonials.map((t, i) => (
                   <button
                     key={i}
                     onClick={() => goToTestimonial(i)}
-                    className={`transition-all duration-300 rounded-full ${i === testimonialIndex ? "w-8 h-2.5 bg-sky-500" : "w-2.5 h-2.5 bg-slate-300 hover:bg-sky-300"}`}
-                  />
+                    aria-label={`Tampilkan testimoni ${i + 1} dari ${t.name}`}
+                    aria-current={i === testimonialIndex ? "true" : undefined}
+                    className="grid place-items-center min-w-6 h-6 px-1"
+                  >
+                    <span
+                      className={`block transition-all duration-300 rounded-full ${i === testimonialIndex ? "w-8 h-2.5 bg-sky-500" : "w-2.5 h-2.5 bg-slate-300 hover:bg-sky-300"}`}
+                    />
+                  </button>
                 ))}
               </div>
               <button
                 onClick={nextTestimonial}
+                aria-label="Testimoni berikutnya"
                 className="w-12 h-12 rounded-2xl bg-white border border-slate-200 hover:border-sky-300 hover:bg-sky-50 flex items-center justify-center transition-all shadow-sm"
               >
                 <ChevronRight className="w-5 h-5 text-slate-600" />
@@ -1273,7 +1301,7 @@ export default function Home({
                   onClick={() => setCurrentPage("kontak")}
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
-                  className="w-full sm:w-auto bg-white text-sky-600 hover:bg-sky-50 px-6 sm:px-8 py-3.5 sm:py-4 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-xl transition-all text-sm sm:text-base"
+                  className="w-full sm:w-auto bg-white text-sky-700 hover:bg-sky-50 px-6 sm:px-8 py-3.5 sm:py-4 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-xl transition-all text-sm sm:text-base"
                 >
                   <Phone className="w-5 h-5" /> Hubungi Kami{" "}
                   <ArrowRight className="w-4 h-4" />
@@ -1284,7 +1312,7 @@ export default function Home({
                   rel="noopener noreferrer"
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
-                  className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 text-white px-6 sm:px-8 py-3.5 sm:py-4 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-xl transition-all text-sm sm:text-base"
+                  className="w-full sm:w-auto bg-emerald-700 hover:bg-emerald-800 text-white px-6 sm:px-8 py-3.5 sm:py-4 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-xl transition-all text-sm sm:text-base"
                 >
                   <MessageCircle className="w-5 h-5" /> Chat via WhatsApp
                 </motion.a>
