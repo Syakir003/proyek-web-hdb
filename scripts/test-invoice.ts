@@ -140,4 +140,15 @@ import { calcInvoice, validateInvoice } from "../src/utils/invoice";
   );
 }
 
+// --- angka bertipe string (mis. kolom DECIMAL yang dibalikkan mysql2) ---
+{
+  const t = calcInvoice(
+    [{ desc: "X", qty: 2, price: "150000.00" as any }],
+    "200000.00" as any,
+  );
+  assert.equal(t.subtotal, 300000, "subtotal dari price string");
+  assert.equal(t.dp, 200000, "dp dari string");
+  assert.equal(t.sisa, 100000, "sisa dari kombinasi string");
+}
+
 console.log("OK — semua pengecekan invoice lulus");

@@ -14,6 +14,7 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import sharp from "sharp";
 import { fileURLToPath } from "url";
+import { calcInvoice, validateInvoice } from "./src/utils/invoice";
 
 dotenv.config();
 
@@ -413,6 +414,25 @@ async function testDB() {
       unit_price          DECIMAL(12,2) NOT NULL,
       subtotal            DECIMAL(12,2) NOT NULL,
       FOREIGN KEY (order_addition_id) REFERENCES order_additions(id) ON DELETE CASCADE
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS manual_invoices (
+      id               INT AUTO_INCREMENT PRIMARY KEY,
+      invoice_number   VARCHAR(30) NOT NULL UNIQUE,
+      token            VARCHAR(64) NOT NULL UNIQUE,
+      customer_name    VARCHAR(150) NOT NULL,
+      customer_phone   VARCHAR(30) DEFAULT NULL,
+      customer_address TEXT,
+      invoice_date     DATE NOT NULL,
+      items            JSON NOT NULL,
+      dp_amount        DECIMAL(12,2) NOT NULL DEFAULT 0,
+      notes            TEXT,
+      created_by       INT DEFAULT NULL,
+      created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_mi_token (token),
+      INDEX idx_mi_created (created_at)
     )
   `);
 
@@ -1569,7 +1589,14 @@ async function startServer() {
       `SELECT COUNT(*) as cnt FROM order_additions WHERE invoice_number IS NOT NULL AND DATE_FORMAT(invoice_sent_at,'%Y-%m')=?`,
       [ym],
     );
-    const seq = Number(c1[0].cnt) + Number(c2[0].cnt) + 1;
+    // Invoice manual ikut dihitung supaya nomornya tidak pernah bertabrakan
+    // dengan invoice order. Patokannya created_at (kapan diterbitkan), bukan
+    // invoice_date yang boleh diisi mundur oleh admin.
+    const [c3]: any = await conn.query(
+      `SELECT COUNT(*) as cnt FROM manual_invoices WHERE DATE_FORMAT(created_at,'%Y-%m')=?`,
+      [ym],
+    );
+    const seq = Number(c1[0].cnt) + Number(c2[0].cnt) + Number(c3[0].cnt) + 1;
     return `INV-${ym}-${String(seq).padStart(4, "0")}`;
   }
 
@@ -2598,7 +2625,7 @@ async function startServer() {
       "/", "/katalog", "/layanan", "/tentang", "/kontak",
       "/blog", "/karir", "/privasi", "/syarat", "/admin", "/teknisi",
     ]);
-    const SPA_PREFIXES = ["/tambahan/", "/invoice/", "/order-invoice/"];
+    const SPA_PREFIXES = ["/tambahan/", "/invoice/", "/order-invoice/", "/invoice-manual/"];
 
     app.get(/^(?!\/api).*/, (req, res) => {
       const normalized = req.path.replace(/\/+$/, "") || "/";
@@ -3808,6 +3835,231 @@ async function startServer() {
           orig_total: origTotal,
           add_total: addTotal,
           grand_total: origTotal + addTotal,
+        },
+      });
+    } catch (e) {
+      res
+        .status(500)
+        .json({ success: false, message: "Gagal mengambil data invoice" });
+    }
+  });
+
+  // =========================
+  // INVOICE MANUAL
+  // =========================
+  // mysql2 biasanya sudah mem-parse kolom JSON, tapi tergantung versi/driver
+  // bisa juga balik sebagai string. Tangani keduanya.
+  const parseItems = (v: any) => {
+    if (Array.isArray(v)) return v;
+    if (typeof v === "string") {
+      try {
+        return JSON.parse(v);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
+  // Nomor WA Indonesia: buang non-digit, buang prefix 62/0 yang sudah ada,
+  // lalu pasang 62. 081234567890 dan +62 812-3456-7890 sama-sama jadi
+  // 6281234567890.
+  const waNumber = (phone: string) =>
+    "62" +
+    String(phone).replace(/\D/g, "").replace(/^62/, "").replace(/^0/, "");
+
+  // GET /api/manual-invoices — admin: daftar invoice manual
+  app.get(
+    "/api/manual-invoices",
+    authenticateToken,
+    requireAdmin,
+    async (_req, res) => {
+      try {
+        const [rows]: any = await pool.query(
+          "SELECT * FROM manual_invoices ORDER BY created_at DESC",
+        );
+        res.json({
+          success: true,
+          data: rows.map((r: any) => {
+            const items = parseItems(r.items);
+            const t = calcInvoice(items, Number(r.dp_amount));
+            return {
+              id: r.id,
+              invoice_number: r.invoice_number,
+              token: r.token,
+              customer_name: r.customer_name,
+              customer_phone: r.customer_phone,
+              customer_address: r.customer_address,
+              invoice_date: r.invoice_date,
+              notes: r.notes,
+              created_at: r.created_at,
+              items: t.items,
+              subtotal: t.subtotal,
+              dp_amount: t.dp,
+              sisa: t.sisa,
+              status: t.status,
+            };
+          }),
+        });
+      } catch (e) {
+        res
+          .status(500)
+          .json({ success: false, message: "Gagal mengambil daftar invoice" });
+      }
+    },
+  );
+
+  // POST /api/manual-invoices — admin: buat invoice manual baru
+  app.post(
+    "/api/manual-invoices",
+    authenticateToken,
+    requireAdmin,
+    async (req: any, res) => {
+      try {
+        const {
+          customer_name,
+          customer_phone,
+          customer_address,
+          invoice_date,
+          items,
+          dp_amount,
+          notes,
+        } = req.body;
+
+        const dp = Number(dp_amount) || 0;
+        const err = validateInvoice(customer_name, items, dp);
+        if (err) return res.status(400).json({ success: false, message: err });
+
+        // Hanya field yang dikenal yang disimpan, dan angkanya dinormalkan di sini.
+        // Total tidak ikut disimpan — selalu dihitung ulang saat dibaca, jadi
+        // angka kiriman browser tidak pernah dipercaya.
+        const cleanItems = items.map((it: any) => ({
+          desc: String(it.desc).trim(),
+          qty: Number(it.qty),
+          unit: String(it.unit || "pcs").trim(),
+          price: Number(it.price),
+        }));
+
+        const token = crypto.randomBytes(32).toString("hex");
+        const invoiceDate =
+          invoice_date || new Date().toISOString().slice(0, 10);
+
+        // Alokasi nomor + INSERT di bawah lock global yang sama dengan invoice
+        // order, supaya dua permintaan bersamaan tidak dapat nomor kembar.
+        const invoiceNumber = await withInvoiceLock(async (conn) => {
+          const now = new Date();
+          const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+          const num = await nextInvoiceNumber(conn, ym);
+          await conn.query(
+            `INSERT INTO manual_invoices
+               (invoice_number, token, customer_name, customer_phone,
+                customer_address, invoice_date, items, dp_amount, notes, created_by)
+             VALUES (?,?,?,?,?,?,?,?,?,?)`,
+            [
+              num,
+              token,
+              String(customer_name).trim(),
+              customer_phone ? String(customer_phone).trim() : null,
+              customer_address ? String(customer_address).trim() : null,
+              invoiceDate,
+              JSON.stringify(cleanItems),
+              dp,
+              notes ? String(notes).trim() : null,
+              req.user?.id ?? null,
+            ],
+          );
+          return num;
+        });
+
+        const invoiceUrl = `${PUBLIC_BASE_URL}/invoice-manual/${token}`;
+        const waLink = customer_phone
+          ? `https://wa.me/${waNumber(customer_phone)}?text=${encodeURIComponent(
+              `Halo ${customer_name}, invoice Anda (${invoiceNumber}) sudah tersedia.\n\nLihat invoice di:\n${invoiceUrl}`,
+            )}`
+          : null;
+
+        res.json({
+          success: true,
+          invoice_number: invoiceNumber,
+          token,
+          invoiceUrl,
+          waLink,
+        });
+      } catch (e) {
+        res
+          .status(500)
+          .json({ success: false, message: "Gagal membuat invoice" });
+      }
+    },
+  );
+
+  // DELETE /api/manual-invoices/:id — admin: hapus invoice manual
+  app.delete(
+    "/api/manual-invoices/:id",
+    authenticateToken,
+    requireAdmin,
+    async (req, res) => {
+      try {
+        const [r]: any = await pool.query(
+          "DELETE FROM manual_invoices WHERE id=?",
+          [req.params.id],
+        );
+        if (!r.affectedRows)
+          return res
+            .status(404)
+            .json({ success: false, message: "Invoice tidak ditemukan" });
+        res.json({ success: true });
+      } catch (e) {
+        res
+          .status(500)
+          .json({ success: false, message: "Gagal menghapus invoice" });
+      }
+    },
+  );
+
+  // GET /api/manual-invoice/:token — publik: data untuk halaman cetak.
+  // Bentuk balasannya sengaja sama dengan /api/order-invoice/:token supaya
+  // InvoiceView.tsx bisa dipakai ulang tanpa cabang logika baru.
+  app.get("/api/manual-invoice/:token", async (req, res) => {
+    try {
+      const [rows]: any = await pool.query(
+        "SELECT * FROM manual_invoices WHERE token=?",
+        [req.params.token],
+      );
+      if (!rows.length)
+        return res
+          .status(404)
+          .json({ success: false, message: "Invoice tidak ditemukan" });
+
+      const inv = rows[0];
+      const t = calcInvoice(parseItems(inv.items), Number(inv.dp_amount));
+
+      res.json({
+        success: true,
+        data: {
+          invoice_number: inv.invoice_number,
+          invoice_date: inv.invoice_date,
+          order_id: null,
+          order_date: null,
+          customer_name: inv.customer_name,
+          customer_phone: inv.customer_phone,
+          customer_address: inv.customer_address,
+          teknisi_name: null,
+          payment_method: null,
+          orig_items: t.items.map((it) => ({
+            item_name: it.desc,
+            quantity: it.qty,
+            unit: it.unit,
+            price: it.price,
+          })),
+          add_items: [],
+          orig_total: t.subtotal,
+          add_total: 0,
+          grand_total: t.subtotal,
+          dp_amount: t.dp,
+          sisa: t.sisa,
+          status: t.status,
+          notes: inv.notes,
         },
       });
     } catch (e) {
