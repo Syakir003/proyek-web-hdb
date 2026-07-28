@@ -401,6 +401,16 @@ export default function Home({
   const [servicesData, setServicesData] = useState<any[]>([]);
   const [productsData, setProductsData] = useState<any[]>([]);
 
+  // Slide 2 & 3 baru diunduh setelah halaman selesai load. Kalau ikut dari awal,
+  // ~300 KB gambar yang belum kelihatan rebutan bandwidth dengan LCP slide 1.
+  const [preloadRest, setPreloadRest] = useState(false);
+  useEffect(() => {
+    if (document.readyState === "complete") return setPreloadRest(true);
+    const onLoad = () => setPreloadRest(true);
+    window.addEventListener("load", onLoad);
+    return () => window.removeEventListener("load", onLoad);
+  }, []);
+
   useEffect(() => {
     const timer = setInterval(
       () => setActiveSlide((p) => (p + 1) % heroSlides.length),
@@ -480,16 +490,18 @@ export default function Home({
             animate={{ opacity: i === activeSlide ? 1 : 0 }}
             transition={{ duration: 1.2 }}
           >
-            <img
-              src={s.image}
-              alt={`${s.title} – HDB Airconds`}
-              width="1920"
-              height="1080"
-              loading={i === 0 ? "eager" : "lazy"}
-              fetchPriority={i === 0 ? "high" : "low"}
-              decoding="async"
-              className="w-full h-full object-cover"
-            />
+            {(i === 0 || preloadRest || i === activeSlide) && (
+              <img
+                src={s.image}
+                alt={`${s.title} – HDB Airconds`}
+                width="1920"
+                height="1080"
+                loading={i === 0 ? "eager" : "lazy"}
+                fetchPriority={i === 0 ? "high" : "low"}
+                decoding="async"
+                className="w-full h-full object-cover"
+              />
+            )}
           </motion.div>
         ))}
         <div className="absolute inset-0 bg-gradient-to-r from-slate-900/95 via-slate-900/75 to-transparent" />

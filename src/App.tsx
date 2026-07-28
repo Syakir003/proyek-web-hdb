@@ -3,30 +3,36 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, lazy, Suspense } from "react";
 import { AnimatePresence } from "motion/react";
 import { BrandIcon } from "./components/BrandIcons";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import Home from "./pages/Home";
-import Catalog from "./pages/Catalog";
-import About from "./pages/About";
-import Contact from "./pages/Contact";
-import Checkout from "./pages/Checkout";
-import Login from "./pages/Login";
-import Cart from "./pages/Cart";
-import UserOrders from "./pages/UserOrders";
-import AdminLayout from "./pages/admin/AdminLayout";
-import TeknisiDashboard from "./pages/teknisi/TeknisiDashboard";
-import Layanan from "./pages/Layanan";
-import Karir from "./pages/Karir";
-import Blog from "./pages/Blog";
-import Privasi from "./pages/Privasi";
-import Syarat from "./pages/Syarat";
-import CustomerAdditionApproval from "./pages/CustomerAdditionApproval";
-import InvoiceView from "./pages/InvoiceView";
 import { Product, CartItem, Service } from "./data";
 import { useSEO } from "./hooks/useSEO";
+
+// Semua halaman selain Beranda di-load on-demand agar bundle awal kecil.
+// AdminReports menarik ExcelJS + jsPDF (~1.5 MB) — wajib tidak ikut bundle publik.
+const Catalog = lazy(() => import("./pages/Catalog"));
+const About = lazy(() => import("./pages/About"));
+const Contact = lazy(() => import("./pages/Contact"));
+const Checkout = lazy(() => import("./pages/Checkout"));
+const Login = lazy(() => import("./pages/Login"));
+const Cart = lazy(() => import("./pages/Cart"));
+const UserOrders = lazy(() => import("./pages/UserOrders"));
+const AdminLayout = lazy(() => import("./pages/admin/AdminLayout"));
+const TeknisiDashboard = lazy(() => import("./pages/teknisi/TeknisiDashboard"));
+const Layanan = lazy(() => import("./pages/Layanan"));
+const Karir = lazy(() => import("./pages/Karir"));
+const Blog = lazy(() => import("./pages/Blog"));
+const Privasi = lazy(() => import("./pages/Privasi"));
+const Syarat = lazy(() => import("./pages/Syarat"));
+const CustomerAdditionApproval = lazy(() => import("./pages/CustomerAdditionApproval"));
+const InvoiceView = lazy(() => import("./pages/InvoiceView"));
+
+// Placeholder tinggi-tetap supaya tidak menimbulkan layout shift (CLS)
+const PageFallback = () => <div className="min-h-screen" aria-busy="true" />;
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState(() => {
@@ -328,10 +334,18 @@ export default function App() {
   // If the current page is 'admin' or 'teknisi', we don't show the standard Navbar/Footer
   if (currentPage === "admin" || currentPage === "teknisi") {
     if (authToken && userRole === "admin" && currentPage === "admin") {
-      return <AdminLayout token={authToken} onLogout={handleLogout} />;
+      return (
+        <Suspense fallback={<PageFallback />}>
+          <AdminLayout token={authToken} onLogout={handleLogout} />
+        </Suspense>
+      );
     }
     if (authToken && userRole === "teknisi" && currentPage === "teknisi") {
-      return <TeknisiDashboard token={authToken} onLogout={handleLogout} />;
+      return (
+        <Suspense fallback={<PageFallback />}>
+          <TeknisiDashboard token={authToken} onLogout={handleLogout} />
+        </Suspense>
+      );
     }
     return null;
   }
@@ -428,7 +442,9 @@ export default function App() {
       )}
 
       <main className={`grow ${!isInvoicePage && currentPage !== "beranda" ? "pt-20" : ""}`}>
-        <AnimatePresence mode="wait">{renderPage()}</AnimatePresence>
+        <Suspense fallback={<PageFallback />}>
+          <AnimatePresence mode="wait">{renderPage()}</AnimatePresence>
+        </Suspense>
       </main>
 
       {!isInvoicePage && <Footer setCurrentPage={setCurrentPage} />}
@@ -436,7 +452,9 @@ export default function App() {
       {/* Login Modal Overlay */}
       <AnimatePresence>
         {currentPage === "login" && (
-          <Login onLoginSuccess={handleLoginSuccess} onBack={closeLogin} />
+          <Suspense fallback={null}>
+            <Login onLoginSuccess={handleLoginSuccess} onBack={closeLogin} />
+          </Suspense>
         )}
       </AnimatePresence>
 

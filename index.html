@@ -78,13 +78,37 @@
     <meta name="format-detection" content="telephone=yes" />
 
     <!-- Preconnect untuk performa -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://cdn.simpleicons.org" crossorigin />
     <link rel="dns-prefetch" href="https://wa.me" />
 
+    <!-- Font di-host sendiri (lihat @font-face di src/index.css). Di-preload agar
+         tidak menunggu CSS bundle selesai di-parse dulu. -->
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      href="/fonts/inter-latin.woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      href="/fonts/jakarta-latin.woff2"
+      crossorigin
+    />
+
+    <!-- LCP: gambar hero slide pertama, mulai diunduh sebelum JS jalan -->
+    <link
+      rel="preload"
+      as="image"
+      href="/images/instalasi-ac-mojokerto-hdb-airconds.webp"
+      fetchpriority="high"
+    />
+
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="/images/HDB-LOGO.png" />
-    <link rel="apple-touch-icon" href="/images/HDB-LOGO.png" />
+    <link rel="icon" type="image/png" href="/images/favicon-64.png" />
+    <link rel="apple-touch-icon" href="/images/apple-touch-icon.png" />
 
     <!-- Sitemap reference -->
     <link rel="sitemap" type="application/xml" href="/sitemap.xml" />

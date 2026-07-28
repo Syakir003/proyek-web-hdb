@@ -26,5 +26,11 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
+    // Supaya `vite preview` (uji hasil build) juga bisa memanggil API
+    preview: {
+      proxy: {
+        '/api': { target: apiUrl, changeOrigin: true, secure: false },
+      },
+    },
   };
 });

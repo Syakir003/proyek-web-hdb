@@ -172,7 +172,7 @@ export default function Login({ onLoginSuccess, onBack }: LoginProps) {
                 boxShadow: "0 0 24px rgba(14,165,233,0.15)",
               }}
             >
-              <img src="/images/HDB-LOGO.png" alt="HDB Airconds" className="w-11 h-11 object-contain" />
+              <img src="/images/logo-80.webp" alt="HDB Airconds" width="44" height="44" className="w-11 h-11 object-contain" />
             </motion.div>
 
             <div>
