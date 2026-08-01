@@ -1558,6 +1558,13 @@ async function startServer() {
     }
   }
 
+  // Nomor WA Indonesia: buang non-digit, buang prefix 62/0 yang sudah ada,
+  // lalu pasang 62. 081234567890 dan +62 812-3456-7890 sama-sama jadi
+  // 6281234567890.
+  const waNumber = (phone: string) =>
+    "62" +
+    String(phone ?? "").replace(/\D/g, "").replace(/^62/, "").replace(/^0/, "");
+
   // =========================
   // HELPER: generate nomor invoice untuk order addition (idempotent)
   // =========================
@@ -1578,25 +1585,31 @@ async function startServer() {
     }
   }
 
-  // Hitung nomor invoice berikutnya (gabungan orders + order_additions) untuk bulan ym.
-  // Harus dipanggil di dalam withInvoiceLock agar tidak ada race.
+  // Hitung nomor invoice berikutnya (gabungan orders + order_additions +
+  // manual_invoices) untuk bulan ym. Harus dipanggil di dalam withInvoiceLock
+  // agar tidak ada race.
+  //
+  // Patokannya nomor tertinggi yang sudah dipakai, BUKAN jumlah baris: invoice
+  // yang dihapus (mis. invoice manual) atau invoice yang dikirim ulang di bulan
+  // lain akan mengubah jumlah baris dan membuat nomor terbit ulang — padahal
+  // kolomnya UNIQUE. Bulannya dibaca dari nomor itu sendiri, jadi tidak ikut
+  // bergeser saat invoice_sent_at diperbarui.
   async function nextInvoiceNumber(conn: any, ym: string): Promise<string> {
-    const [c1]: any = await conn.query(
-      `SELECT COUNT(*) as cnt FROM orders WHERE invoice_number IS NOT NULL AND DATE_FORMAT(invoice_sent_at,'%Y-%m')=?`,
-      [ym],
+    const like = `INV-${ym}-%`;
+    const [r]: any = await conn.query(
+      `SELECT MAX(seq) AS m FROM (
+         SELECT CAST(SUBSTRING_INDEX(invoice_number,'-',-1) AS UNSIGNED) AS seq
+           FROM orders WHERE invoice_number LIKE ?
+         UNION ALL
+         SELECT CAST(SUBSTRING_INDEX(invoice_number,'-',-1) AS UNSIGNED)
+           FROM order_additions WHERE invoice_number LIKE ?
+         UNION ALL
+         SELECT CAST(SUBSTRING_INDEX(invoice_number,'-',-1) AS UNSIGNED)
+           FROM manual_invoices WHERE invoice_number LIKE ?
+       ) t`,
+      [like, like, like],
     );
-    const [c2]: any = await conn.query(
-      `SELECT COUNT(*) as cnt FROM order_additions WHERE invoice_number IS NOT NULL AND DATE_FORMAT(invoice_sent_at,'%Y-%m')=?`,
-      [ym],
-    );
-    // Invoice manual ikut dihitung supaya nomornya tidak pernah bertabrakan
-    // dengan invoice order. Patokannya created_at (kapan diterbitkan), bukan
-    // invoice_date yang boleh diisi mundur oleh admin.
-    const [c3]: any = await conn.query(
-      `SELECT COUNT(*) as cnt FROM manual_invoices WHERE DATE_FORMAT(created_at,'%Y-%m')=?`,
-      [ym],
-    );
-    const seq = Number(c1[0].cnt) + Number(c2[0].cnt) + Number(c3[0].cnt) + 1;
+    const seq = Number(r[0].m || 0) + 1;
     return `INV-${ym}-${String(seq).padStart(4, "0")}`;
   }
 
@@ -3156,7 +3169,7 @@ async function startServer() {
           const waMsg = encodeURIComponent(
             `Halo ${add.customer_name}, ada penambahan material/jasa untuk order Anda senilai Rp${Number(add.total).toLocaleString("id-ID")}.\n\nSilakan cek dan setujui di:\n${approvalUrl}`,
           );
-          const waLink = `https://wa.me/62${String(add.phone).replace(/^0/, "")}?text=${waMsg}`;
+          const waLink = `https://wa.me/${waNumber(add.phone)}?text=${waMsg}`;
           res.json({
             success: true,
             status: "pending_customer",
@@ -3697,7 +3710,7 @@ async function startServer() {
         const waMsg = encodeURIComponent(
           `Halo ${add.customer_name}, invoice untuk tambahan order Anda (${invoiceNumber}) sudah tersedia.\n\nLihat invoice di:\n${invoiceUrl}`,
         );
-        const waLink = `https://wa.me/62${String(add.phone).replace(/^0/, "")}?text=${waMsg}`;
+        const waLink = `https://wa.me/${waNumber(add.phone)}?text=${waMsg}`;
 
         res.json({
           success: true,
@@ -3766,7 +3779,7 @@ async function startServer() {
         const waMsg = encodeURIComponent(
           `Halo ${order.customer_name}, invoice untuk order Anda (${invoiceNumber}) sudah tersedia.\n\nLihat invoice di:\n${invoiceUrl}`,
         );
-        const waLink = `https://wa.me/62${String(order.phone).replace(/^0/, "")}?text=${waMsg}`;
+        const waLink = `https://wa.me/${waNumber(order.phone)}?text=${waMsg}`;
 
         res.json({
           success: true,
@@ -3849,24 +3862,13 @@ async function startServer() {
   // =========================
   // mysql2 biasanya sudah mem-parse kolom JSON, tapi tergantung versi/driver
   // bisa juga balik sebagai string. Tangani keduanya.
+  // Sengaja melempar kalau isinya bukan array: lebih baik 500 daripada invoice
+  // tampil kosong Rp 0 seolah-olah memang tidak ada itemnya.
   const parseItems = (v: any) => {
-    if (Array.isArray(v)) return v;
-    if (typeof v === "string") {
-      try {
-        return JSON.parse(v);
-      } catch {
-        return [];
-      }
-    }
-    return [];
+    const parsed = typeof v === "string" ? JSON.parse(v) : v;
+    if (!Array.isArray(parsed)) throw new Error("items invoice tidak valid");
+    return parsed;
   };
-
-  // Nomor WA Indonesia: buang non-digit, buang prefix 62/0 yang sudah ada,
-  // lalu pasang 62. 081234567890 dan +62 812-3456-7890 sama-sama jadi
-  // 6281234567890.
-  const waNumber = (phone: string) =>
-    "62" +
-    String(phone).replace(/\D/g, "").replace(/^62/, "").replace(/^0/, "");
 
   // GET /api/manual-invoices — admin: daftar invoice manual
   app.get(
@@ -3927,7 +3929,13 @@ async function startServer() {
         } = req.body;
 
         const dp = Number(dp_amount) || 0;
-        const err = validateInvoice(customer_name, items, dp);
+        const err = validateInvoice(
+          customer_name,
+          items,
+          dp,
+          customer_phone,
+          invoice_date,
+        );
         if (err) return res.status(400).json({ success: false, message: err });
 
         // Hanya field yang dikenal yang disimpan, dan angkanya dinormalkan di sini.

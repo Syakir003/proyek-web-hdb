@@ -140,6 +140,66 @@ import { calcInvoice, validateInvoice } from "../src/utils/invoice";
   );
 }
 
+// --- validateInvoice: batas panjang mengikuti lebar kolom ---
+{
+  const ok = [{ desc: "Service", qty: 1, price: 1000 }];
+  assert.equal(
+    validateInvoice("B".repeat(151), ok, 0),
+    "Nama pelanggan maksimal 150 karakter",
+  );
+  assert.equal(validateInvoice("B".repeat(150), ok, 0), null, "150 masih boleh");
+  assert.equal(
+    validateInvoice("Budi", ok, 0, "0".repeat(31)),
+    "Nomor telepon maksimal 30 karakter",
+  );
+  assert.equal(
+    validateInvoice("Budi", [{ desc: "x".repeat(256), qty: 1, price: 1 }], 0),
+    "Baris 1: deskripsi maksimal 255 karakter",
+  );
+  assert.equal(
+    validateInvoice("Budi", ok, 10_000_000_000),
+    "DP terlalu besar",
+  );
+}
+
+// --- validateInvoice: tanggal ---
+{
+  const ok = [{ desc: "Service", qty: 1, price: 1000 }];
+  assert.equal(validateInvoice("Budi", ok, 0, "", "2026-08-01"), null);
+  assert.equal(validateInvoice("Budi", ok, 0, "", ""), null, "kosong = hari ini");
+  assert.equal(
+    validateInvoice("Budi", ok, 0, "", "01/08/2026"),
+    "Tanggal invoice tidak valid",
+  );
+  assert.equal(
+    validateInvoice("Budi", ok, 0, "", "2026-02-30"),
+    "Tanggal invoice tidak valid",
+    "tanggal yang tidak ada ditolak",
+  );
+  assert.equal(
+    validateInvoice("Budi", ok, 0, "", "2026-13-01"),
+    "Tanggal invoice tidak valid",
+    "bulan 13 ditolak",
+  );
+  assert.equal(
+    validateInvoice("Budi", ok, 0, "", "2028-02-29"),
+    null,
+    "29 Feb tahun kabisat diterima",
+  );
+}
+
+// --- validateInvoice: masukan bukan string tidak melempar (harus 400, bukan 500) ---
+{
+  assert.equal(
+    validateInvoice({ x: 1 } as any, [{ desc: "S", qty: 1, price: 1 }], 0),
+    "Nama pelanggan wajib diisi",
+  );
+  assert.equal(
+    validateInvoice("Budi", [{ desc: null as any, qty: 1, price: 1 }], 0),
+    "Baris 1: deskripsi wajib diisi",
+  );
+}
+
 // --- angka bertipe string (mis. kolom DECIMAL yang dibalikkan mysql2) ---
 {
   const t = calcInvoice(

@@ -62,20 +62,52 @@ export function calcInvoice(
  * Validasi masukan invoice. Mengembalikan pesan error siap tampil, atau null
  * kalau semuanya valid. Dipakai server sebelum INSERT dan form untuk
  * menonaktifkan tombol simpan.
+ *
+ * Batas panjang mengikuti lebar kolom di tabel manual_invoices — kalau tidak
+ * dicek di sini, MySQL yang menolak dan admin cuma dapat "Gagal membuat
+ * invoice" tanpa tahu bagian mana yang salah.
  */
 export function validateInvoice(
   customerName: string,
   items: InvoiceItem[],
   dpAmount: number,
+  phone?: string,
+  invoiceDate?: string,
 ): string | null {
-  if (!customerName?.trim()) return "Nama pelanggan wajib diisi";
+  // Nilainya datang mentah dari body request, jadi belum tentu string.
+  // Dipaksa jadi teks di sini supaya masukan aneh berakhir sebagai pesan
+  // validasi (400), bukan TypeError yang jatuh jadi 500.
+  const txt = (v: any) =>
+    typeof v === "string" || typeof v === "number" ? String(v).trim() : "";
+
+  const name = txt(customerName);
+  if (!name) return "Nama pelanggan wajib diisi";
+  if (name.length > 150) return "Nama pelanggan maksimal 150 karakter";
+  if (txt(phone).length > 30) return "Nomor telepon maksimal 30 karakter";
+  // Tanggal kosong berarti "hari ini", diisi server. Kalau diisi harus rapi DAN
+  // benar-benar ada: Date menggulung 2026-02-30 jadi 2 Maret, jadi formatnya
+  // dibandingkan balik setelah di-parse. MySQL kolom DATE menolak tanggal
+  // seperti itu dan errornya jatuh jadi 500 yang tidak menjelaskan apa-apa.
+  const date = txt(invoiceDate);
+  if (invoiceDate) {
+    const d = new Date(`${date}T00:00:00Z`);
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+      isNaN(d.getTime()) ||
+      d.toISOString().slice(0, 10) !== date
+    )
+      return "Tanggal invoice tidak valid";
+  }
+
   if (!Array.isArray(items) || items.length === 0)
     return "Minimal satu baris item";
 
   for (let i = 0; i < items.length; i++) {
     const it = items[i];
     const no = i + 1;
-    if (!it?.desc?.trim()) return `Baris ${no}: deskripsi wajib diisi`;
+    const desc = txt(it?.desc);
+    if (!desc) return `Baris ${no}: deskripsi wajib diisi`;
+    if (desc.length > 255) return `Baris ${no}: deskripsi maksimal 255 karakter`;
     // Pembandingan dibalik supaya NaN ikut tertolak.
     if (!(Number(it.qty) > 0)) return `Baris ${no}: qty harus lebih dari 0`;
     if (!(Number(it.price) >= 0))
@@ -83,6 +115,8 @@ export function validateInvoice(
   }
 
   if (!(Number(dpAmount) >= 0)) return "DP tidak boleh negatif";
+  // DECIMAL(12,2): maksimal 9.999.999.999,99
+  if (Number(dpAmount) > 9999999999) return "DP terlalu besar";
   return null;
 }
 
